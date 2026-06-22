@@ -16,7 +16,7 @@ export interface Target {
 }
 
 export interface AddTargetInput {
-  period: string
+  period?: string
   kam: string
   seName: string
   clientId: string
