@@ -1,0 +1,21 @@
+.git
+.gitignore
+.next
+node_modules
+npm-debug.log*
+
+# env — mount at runtime, never bake into image
+.env
+.env.*
+
+# dev/editor files
+.vscode
+.idea
+*.swp
+README.md
+CLAUDE.md
+AGENTS.md
+
+# Docker files themselves
+Dockerfile
+.dockerignore

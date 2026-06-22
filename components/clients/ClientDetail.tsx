@@ -1,0 +1,191 @@
+"use client"
+import { useState } from "react"
+import type { Client } from "@/types/client"
+import { useUpdateClient } from "@/hooks/useClients"
+import { HealthDot } from "@/components/shared/HealthDot"
+import { HealthBadge, FeedbackBadge, ClientStatusBadge } from "@/components/shared/StatusBadge"
+import { Button } from "@/components/ui/button"
+import { Textarea } from "@/components/ui/textarea"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Label } from "@/components/ui/label"
+import { Badge } from "@/components/ui/badge"
+import { formatDate, daysSince } from "@/lib/utils"
+import { STATUS_OPTIONS, HEALTH_OPTIONS, FEEDBACK_STATUS } from "@/constants"
+import { ExternalLink, MessageSquare, CalendarPlus, Clock, FileText, Star } from "lucide-react"
+
+interface Props {
+  client: Client
+  onUpdated: (c: Client) => void
+}
+
+export function ClientDetail({ client, onUpdated }: Props) {
+  const [form, setForm] = useState({
+    status: client.status,
+    health: client.health,
+    feedbackStatus: client.feedbackStatus,
+    nextFollowup: client.nextFollowup,
+    lastFeedbackDate: client.lastFeedbackDate,
+    kamNotes: client.kamNotes,
+  })
+  const [saving, setSaving] = useState(false)
+  const [saved, setSaved] = useState(false)
+  const update = useUpdateClient()
+
+  const handleSave = async () => {
+    setSaving(true)
+    await update.mutateAsync({ id: client.clientId, ...form })
+    setSaving(false)
+    setSaved(true)
+    onUpdated({ ...client, ...form })
+    setTimeout(() => setSaved(false), 2000)
+  }
+
+  const days = daysSince(client.lastFeedbackDate)
+
+  return (
+    <div className="p-5 space-y-4">
+      {/* Header */}
+      <div>
+        <div className="flex items-center gap-3 mb-2">
+          <HealthDot health={client.health} className="h-3.5 w-3.5" />
+          <h2 className="text-xl font-bold text-[#1e3a5f]">{client.company}</h2>
+        </div>
+        <div className="flex flex-wrap gap-1.5">
+          <Badge variant="gray">{client.clientId}</Badge>
+          {client.industry && <Badge variant="gray">{client.industry}</Badge>}
+          <ClientStatusBadge status={client.status} />
+          <HealthBadge health={client.health} />
+          <FeedbackBadge status={client.feedbackStatus} />
+          {client.overdue === "YES" && <Badge variant="red">Overdue</Badge>}
+          {client.aiPriority && <Badge variant="purple">{client.aiPriority}</Badge>}
+        </div>
+      </div>
+
+      {/* Info row */}
+      <div className="grid grid-cols-3 gap-3 text-sm">
+        <InfoCell label="SE" value={client.se || "—"} />
+        <InfoCell label="Start Date" value={formatDate(client.startDate)} />
+        <InfoCell label="Duration" value={client.durationDays ? `${client.durationDays} days` : "—"} />
+        <InfoCell label="Last Feedback" value={formatDate(client.lastFeedbackDate)} highlight={days !== null && days > 7} />
+        <InfoCell label="Days Since" value={days !== null ? `${days}d` : "—"} highlight={days !== null && days > 7} />
+        <InfoCell label="Next Follow-up" value={formatDate(client.nextFollowup)} />
+      </div>
+
+      {/* Quick Update */}
+      <div className="rounded-xl border border-slate-200 p-4 space-y-3 bg-slate-50">
+        <h3 className="text-sm font-semibold text-slate-700">Quick Update</h3>
+        <div className="grid grid-cols-2 gap-3">
+          <div className="space-y-1">
+            <Label className="text-xs">Status</Label>
+            <Select value={form.status} onValueChange={(v) => setForm((f) => ({ ...f, status: v }))}>
+              <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                {STATUS_OPTIONS.map((o) => <SelectItem key={o} value={o}>{o}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-1">
+            <Label className="text-xs">Health</Label>
+            <Select value={form.health} onValueChange={(v) => setForm((f) => ({ ...f, health: v }))}>
+              <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                {HEALTH_OPTIONS.map((o) => <SelectItem key={o} value={o}>{o}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-1">
+            <Label className="text-xs">Feedback Status</Label>
+            <Select value={form.feedbackStatus} onValueChange={(v) => setForm((f) => ({ ...f, feedbackStatus: v }))}>
+              <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                {FEEDBACK_STATUS.map((o) => <SelectItem key={o} value={o}>{o}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-1">
+            <Label className="text-xs">Next Follow-up</Label>
+            <input
+              type="date"
+              value={form.nextFollowup}
+              onChange={(e) => setForm((f) => ({ ...f, nextFollowup: e.target.value }))}
+              className="flex h-8 w-full rounded-lg border border-slate-200 bg-white px-3 py-1 text-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1e3a5f]"
+            />
+          </div>
+        </div>
+        <div className="space-y-1">
+          <Label className="text-xs">KAM Notes</Label>
+          <Textarea
+            value={form.kamNotes}
+            onChange={(e) => setForm((f) => ({ ...f, kamNotes: e.target.value }))}
+            className="min-h-[60px] text-xs"
+            placeholder="Internal notes..."
+          />
+        </div>
+        <div className="flex gap-2 flex-wrap">
+          <Button size="sm" onClick={handleSave} disabled={saving}>
+            {saving ? "Saving..." : saved ? "Saved ✓" : "Save"}
+          </Button>
+          <Button size="sm" variant="outline" asChild>
+            <a href={`/dashboard/feedback?clientId=${client.clientId}`}>
+              <MessageSquare className="h-3.5 w-3.5" /> Log Feedback
+            </a>
+          </Button>
+          <Button size="sm" variant="outline" asChild>
+            <a href={`/dashboard/meetings?new=1&clientId=${client.clientId}`}>
+              <CalendarPlus className="h-3.5 w-3.5" /> Meeting
+            </a>
+          </Button>
+        </div>
+      </div>
+
+      {/* Quick action links */}
+      <div className="flex flex-wrap gap-2">
+        {client.sheetId && (
+          <a href={`https://docs.google.com/spreadsheets/d/${client.sheetId}`} target="_blank" rel="noopener noreferrer"
+            className="inline-flex items-center gap-1 text-xs text-[#0369a1] hover:underline">
+            <FileText className="h-3.5 w-3.5" /> Client Sheet
+            <ExternalLink className="h-3 w-3" />
+          </a>
+        )}
+        {client.dashboardId && (
+          <a href={`https://docs.google.com/spreadsheets/d/${client.dashboardId}`} target="_blank" rel="noopener noreferrer"
+            className="inline-flex items-center gap-1 text-xs text-[#0369a1] hover:underline">
+            <Star className="h-3.5 w-3.5" /> Dashboard
+            <ExternalLink className="h-3 w-3" />
+          </a>
+        )}
+      </div>
+
+      {/* Contact & Services */}
+      <div className="grid grid-cols-2 gap-4 text-sm">
+        <div>
+          <h4 className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1.5">Contact</h4>
+          <div className="space-y-0.5">
+            <div className="text-slate-700">{client.contact || "—"}</div>
+            {client.phone && <div className="text-slate-500 text-xs">{client.phone}</div>}
+            <div className="text-slate-500 text-xs">{client.city}</div>
+          </div>
+        </div>
+        <div>
+          <h4 className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1.5">Services</h4>
+          <div className="text-slate-700 text-xs">{client.services || "—"}</div>
+          {client.contractValue && (
+            <div className="text-xs text-slate-500 mt-1">Contract: ₹{client.contractValue}</div>
+          )}
+          {client.monthlyValue && (
+            <div className="text-xs text-slate-500">Monthly: ₹{client.monthlyValue}</div>
+          )}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function InfoCell({ label, value, highlight }: { label: string; value: string; highlight?: boolean }) {
+  return (
+    <div>
+      <div className="text-[10px] text-slate-400 uppercase tracking-wide">{label}</div>
+      <div className={`text-sm font-medium ${highlight ? "text-red-600" : "text-slate-700"}`}>{value}</div>
+    </div>
+  )
+}
