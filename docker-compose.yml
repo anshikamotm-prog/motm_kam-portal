@@ -13,3 +13,12 @@ services:
       - NODE_ENV=production
       - PORT=4011
       - HOSTNAME=0.0.0.0
+    networks:
+      - kam-net
+
+networks:
+  kam-net:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.30.0.0/24
