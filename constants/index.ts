@@ -1,7 +1,6 @@
 export const SHEET_ID = "1L_0mPRhs7Icp2AdmNClbh7ba6vmxiorJtypichc5x9U"
 export const ENQUIRY_SHEET_ID = "1444uPZ_A7WQohOph64WP1C7f-gR-YE1DQK3KYCPZGko"
 
-export const KAM_NAMES = ["Amol", "Azhar", "Debolina"] as const
 
 export const GCHAT_WEBHOOK_URL = process.env.GCHAT_WEBHOOK_URL
 

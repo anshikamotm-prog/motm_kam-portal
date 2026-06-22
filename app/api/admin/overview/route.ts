@@ -3,8 +3,9 @@ import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 import { getSheetValues } from "@/lib/sheets"
 import { parseClient, parseMeeting, parseTask } from "@/lib/sheets-helpers"
-import { SHEET_ID, SHEETS, KAM_NAMES } from "@/constants"
+import { SHEET_ID, SHEETS } from "@/constants"
 import { daysSince } from "@/lib/utils"
+import { getKAMNames } from "@/lib/getKAMNames"
 
 export async function GET() {
   const session = await getServerSession(authOptions)
@@ -13,10 +14,11 @@ export async function GET() {
   }
 
   try {
-    const [clientRows, meetingRows, taskRows] = await Promise.all([
+    const [clientRows, meetingRows, taskRows, kamNames] = await Promise.all([
       getSheetValues(SHEET_ID, SHEETS.CLIENT_MASTER),
       getSheetValues(SHEET_ID, SHEETS.MEETING_SCHEDULE),
       getSheetValues(SHEET_ID, SHEETS.TASK_TRACKER),
+      getKAMNames(),
     ])
 
     const clients = clientRows.slice(1).map((r, i) => parseClient(r, i + 2))
@@ -40,7 +42,7 @@ export async function GET() {
       monthRevenue: clients.reduce((sum, c) => sum + (parseFloat(c.monthlyValue) || 0), 0),
     }
 
-    const kamBreakdown = KAM_NAMES.map((kam) => {
+    const kamBreakdown = kamNames.map((kam) => {
       const mine = clients.filter((c) => c.kam === kam)
       return {
         kam,
