@@ -1,0 +1,15 @@
+services:
+  kam-portal:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: motm-kam-portal
+    restart: unless-stopped
+    ports:
+      - "4011:4011"
+    env_file:
+      - .env
+    environment:
+      - NODE_ENV=production
+      - PORT=4011
+      - HOSTNAME=0.0.0.0
