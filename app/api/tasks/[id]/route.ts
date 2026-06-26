@@ -20,6 +20,18 @@ export async function PATCH(
   if (idx === -1) return NextResponse.json({ error: "Not found" }, { status: 404 })
 
   const rowNum = idx + 2
+  const taskRow = rows[idx + 1]
+
+  // SE can only update tasks assigned to them; KAM can only update tasks in their portfolio
+  if (session.user.role === "SE" || session.user.role === "DR") {
+    if (taskRow[COLS.TASK.ASSIGNED_TO] !== session.user.fullName) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+    }
+  } else if (session.user.role !== "Admin") {
+    if (taskRow[COLS.TASK.KAM] !== session.user.kamName) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+    }
+  }
   const updates: Array<{ range: string; values: unknown[][] }> = []
 
   if (body.status) {

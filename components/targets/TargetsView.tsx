@@ -11,6 +11,13 @@ import { PageSpinner } from "@/components/shared/Spinner"
 import { getCurrentPeriod } from "@/lib/utils"
 
 type GroupBy = "client" | "se"
+type ViewMode = "targets" | "history"
+
+const MONTHS = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"]
+function monthToNum(m: string) {
+  const [mon, yr] = m.split(" ")
+  return parseInt(yr) * 12 + (MONTHS.indexOf(mon) ?? 0)
+}
 
 export default function TargetsView() {
   const { data: session } = useSession()
@@ -18,6 +25,8 @@ export default function TargetsView() {
   const updateTarget = useUpdateTarget()
   const [period, setPeriod] = useState(getCurrentPeriod())
   const [groupBy, setGroupBy] = useState<GroupBy>("client")
+  const [viewMode, setViewMode] = useState<ViewMode>("targets")
+  const [historyRange, setHistoryRange] = useState<6 | 12>(6)
   const [summaryMode, setSummaryMode] = useState<"week" | "month">("week")
 
   const periods = useMemo(() => {
@@ -97,6 +106,26 @@ export default function TargetsView() {
     return map
   }, [filtered])
 
+  // History — aggregate all targets by month
+  const historyData = useMemo(() => {
+    if (!targets) return []
+    const monthMap: Record<string, { target: number; achieved: number }> = {}
+    targets.forEach((t) => {
+      const m = t.period.match(/^([A-Za-z]{3}\s+\d{4})/)
+      if (!m) return
+      const month = m[1]
+      if (!monthMap[month]) monthMap[month] = { target: 0, achieved: 0 }
+      monthMap[month].target += parseInt(t.target) || 0
+      monthMap[month].achieved += t.type === "Enquiries"
+        ? (t.enquiryCount ?? 0)
+        : (parseInt(t.achieved) || 0)
+    })
+    return Object.entries(monthMap)
+      .map(([month, v]) => ({ month, ...v, pct: v.target > 0 ? Math.round((v.achieved / v.target) * 100) : 0 }))
+      .sort((a, b) => monthToNum(b.month) - monthToNum(a.month))
+      .slice(0, historyRange)
+  }, [targets, historyRange])
+
   if (isLoading) return <PageSpinner />
 
   return (
@@ -112,34 +141,103 @@ export default function TargetsView() {
             <p className="text-xs text-red-400 mt-0.5">KAM name not set in Users sheet — no targets will show</p>
           )}
         </div>
-        <div className="flex items-center gap-2">
-          {/* Group toggle */}
+        <div className="flex items-center gap-2 flex-wrap">
+          {/* View toggle */}
           <div className="flex rounded-lg border border-slate-200 overflow-hidden text-sm">
-            <button
-              onClick={() => setGroupBy("client")}
-              className={`px-3 py-1.5 font-medium transition-colors ${groupBy === "client" ? "bg-[#1e3a5f] text-white" : "bg-white text-slate-500 hover:bg-slate-50"}`}
-            >
-              By Client
+            <button onClick={() => setViewMode("targets")}
+              className={`px-3 py-1.5 font-medium transition-colors ${viewMode === "targets" ? "bg-[#1e3a5f] text-white" : "bg-white text-slate-500 hover:bg-slate-50"}`}>
+              Targets
             </button>
-            <button
-              onClick={() => setGroupBy("se")}
-              className={`px-3 py-1.5 font-medium transition-colors ${groupBy === "se" ? "bg-[#1e3a5f] text-white" : "bg-white text-slate-500 hover:bg-slate-50"}`}
-            >
-              By SE
+            <button onClick={() => setViewMode("history")}
+              className={`px-3 py-1.5 font-medium transition-colors ${viewMode === "history" ? "bg-[#1e3a5f] text-white" : "bg-white text-slate-500 hover:bg-slate-50"}`}>
+              History
             </button>
           </div>
-          {/* Period selector */}
-          <Select value={effectivePeriod} onValueChange={setPeriod}>
-            <SelectTrigger className="w-44"><SelectValue /></SelectTrigger>
-            <SelectContent>
-              {periods.map((p) => <SelectItem key={p} value={p}>{p}</SelectItem>)}
-            </SelectContent>
-          </Select>
+          {viewMode === "targets" && (
+            <>
+              {/* Group toggle */}
+              <div className="flex rounded-lg border border-slate-200 overflow-hidden text-sm">
+                <button onClick={() => setGroupBy("client")}
+                  className={`px-3 py-1.5 font-medium transition-colors ${groupBy === "client" ? "bg-[#1e3a5f] text-white" : "bg-white text-slate-500 hover:bg-slate-50"}`}>
+                  By Client
+                </button>
+                <button onClick={() => setGroupBy("se")}
+                  className={`px-3 py-1.5 font-medium transition-colors ${groupBy === "se" ? "bg-[#1e3a5f] text-white" : "bg-white text-slate-500 hover:bg-slate-50"}`}>
+                  By SE
+                </button>
+              </div>
+              {/* Period selector */}
+              <Select value={effectivePeriod} onValueChange={setPeriod}>
+                <SelectTrigger className="w-44"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {periods.map((p) => <SelectItem key={p} value={p}>{p}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </>
+          )}
+          {viewMode === "history" && (
+            <div className="flex rounded-lg border border-slate-200 overflow-hidden text-sm">
+              <button onClick={() => setHistoryRange(6)}
+                className={`px-3 py-1.5 font-medium transition-colors ${historyRange === 6 ? "bg-[#1e3a5f] text-white" : "bg-white text-slate-500 hover:bg-slate-50"}`}>
+                6 Months
+              </button>
+              <button onClick={() => setHistoryRange(12)}
+                className={`px-3 py-1.5 font-medium transition-colors ${historyRange === 12 ? "bg-[#1e3a5f] text-white" : "bg-white text-slate-500 hover:bg-slate-50"}`}>
+                1 Year
+              </button>
+            </div>
+          )}
         </div>
       </div>
 
+      {/* History View */}
+      {viewMode === "history" && (
+        <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+          <div className="px-4 py-2.5 bg-slate-50 border-b border-slate-200 text-sm font-semibold text-slate-700">
+            Target History — Last {historyRange === 6 ? "6 Months" : "1 Year"}
+          </div>
+          <table className="w-full text-sm">
+            <thead className="bg-slate-50 border-b border-slate-200">
+              <tr>
+                {["Month", "Target", "Achieved", "Achievement %", "Status"].map((h) => (
+                  <th key={h} className="px-4 py-2.5 text-left text-xs font-semibold text-slate-500">{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {historyData.length === 0 && (
+                <tr><td colSpan={5} className="px-4 py-8 text-center text-xs text-slate-400">No history data available</td></tr>
+              )}
+              {historyData.map((row) => (
+                <tr key={row.month} className="border-b border-slate-100 hover:bg-slate-50">
+                  <td className="px-4 py-2.5 font-medium text-slate-800">{row.month}</td>
+                  <td className="px-4 py-2.5 text-slate-600">{row.target}</td>
+                  <td className="px-4 py-2.5 text-slate-600">{row.achieved}</td>
+                  <td className="px-4 py-2.5">
+                    <div className="flex items-center gap-2">
+                      <div className="w-24 h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                        <div
+                          className={`h-full rounded-full ${row.pct >= 100 ? "bg-green-500" : row.pct >= 60 ? "bg-blue-500" : "bg-red-400"}`}
+                          style={{ width: `${Math.min(row.pct, 100)}%` }}
+                        />
+                      </div>
+                      <span className="text-xs font-medium text-slate-600">{row.pct}%</span>
+                    </div>
+                  </td>
+                  <td className="px-4 py-2.5">
+                    <Badge variant={row.pct >= 100 ? "green" : row.pct >= 60 ? "blue" : "red"} className="text-[10px]">
+                      {row.pct >= 100 ? "Achieved" : row.pct >= 60 ? "On Track" : "Behind"}
+                    </Badge>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+
       {/* Enquiry Summary Panel */}
-      {showSummary && (
+      {viewMode === "targets" && showSummary && (
         <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
           <div className="px-4 py-2.5 bg-slate-50 border-b border-slate-200 flex items-center justify-between">
             <span className="text-sm font-semibold text-slate-700">Enquiry Summary</span>
@@ -187,14 +285,14 @@ export default function TargetsView() {
         </div>
       )}
 
-      {filtered.length === 0 && (
+      {viewMode === "targets" && filtered.length === 0 && (
         <div className="text-sm text-slate-400 text-center py-12 bg-white rounded-xl border border-slate-200">
           No targets set for this period
         </div>
       )}
 
       {/* By Client View */}
-      {groupBy === "client" && Object.entries(byClient).map(([key, rows]) => {
+      {viewMode === "targets" && groupBy === "client" && Object.entries(byClient).map(([key, rows]) => {
         const [clientId, company] = key.split("||")
         const se = rows[0]?.seName || "—"
         return (
@@ -214,7 +312,7 @@ export default function TargetsView() {
       })}
 
       {/* By SE View */}
-      {groupBy === "se" && Object.entries(bySE).map(([se, rows]) => {
+      {viewMode === "targets" && groupBy === "se" && Object.entries(bySE).map(([se, rows]) => {
         // Further group by client within SE
         const clientMap: Record<string, typeof rows> = {}
         rows.forEach((t) => {

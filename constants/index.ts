@@ -38,7 +38,9 @@ export const ACTION_OWNERS = [
   "KAM", "SE", "Digital Team", "Management", "BD", "Client", "Shared",
 ] as const
 
-export const TARGET_TYPES = ["Enquiries", "Visits", "Revenue", "Other"] as const
+export const TARGET_TYPES = ["Enquiries", "PO", "Visits", "Revenue", "Data Collection", "Email Response", "Other"] as const
+
+export const EMAIL_RESPONSE_TYPES = ["Positive", "Neutral", "Negative"] as const
 
 // Sheet tab names
 export const SHEETS = {
@@ -53,6 +55,7 @@ export const SHEETS = {
   AUDIT_LOG: "Audit Log",
   ENQUIRY_TRACKER: "Enquiry Tracker",
   LEAD_QUALIFICATION: "Lead Qualification",
+  EMAIL_RESPONSE_LOG: "Email Response Log",
 } as const
 
 // Column indices (0-based) for each sheet
@@ -101,6 +104,12 @@ export const COLS = {
   },
   ENQUIRY_TRACKER: {
     KEY: 0, CLIENT_CODE: 1, STATUS: 2, NOTE: 3, UPDATED_BY: 4, UPDATED_AT: 5,
+  },
+  EMAIL_RESPONSE: {
+    TIMESTAMP: 0, PERIOD: 1, CLIENT_ID: 2, COMPANY: 3, KAM: 4,
+    DR_NAME: 5, CONTACT_PERSON: 6, DESIGNATION: 7, CONTACT_EMAIL: 8,
+    RESPONSE_DATE: 9, RESPONSE_TYPE: 10, RESPONSE_SUMMARY: 11,
+    NEXT_ACTION: 12, NOTES: 13,
   },
   LEAD_QUAL: {
     TIMESTAMP: 0, CLIENT_ID: 1, COMPANY: 2, KAM: 3, LEAD_SOURCE: 4,

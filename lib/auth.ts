@@ -45,11 +45,15 @@ export const authOptions: NextAuthOptions = {
             } else {
               token.role = (match[COLS.USER.ROLE] ?? "KAM") as "Admin" | "KAM" | "SE"
               token.kamName = match[COLS.USER.KAM_NAME] ?? ""
+              token.fullName = match[COLS.USER.FULL_NAME] ?? ""
             }
             token.email = email
             token.sheetLoaded = true
           } else {
-            // User removed from sheet — mark loaded to prevent infinite re-reads
+            // User removed from sheet — strip all privileges and mark loaded
+            token.role = "KAM"
+            token.kamName = ""
+            token.fullName = ""
             token.sheetLoaded = true
           }
         } catch {
@@ -66,6 +70,7 @@ export const authOptions: NextAuthOptions = {
       if (session.user) {
         session.user.role = ((token.role as string) ?? "KAM") as "Admin" | "KAM" | "SE"
         session.user.kamName = (token.kamName as string) ?? ""
+        session.user.fullName = (token.fullName as string) ?? ""
       }
       return session
     },

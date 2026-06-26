@@ -14,10 +14,11 @@ export async function GET(req: NextRequest) {
   const { searchParams } = req.nextUrl
   const period = searchParams.get("period")
 
-  const [targetRows, enquiryRows, userRows] = await Promise.all([
+  const [targetRows, enquiryRows, userRows, emailResponseRows] = await Promise.all([
     getSheetValues(SHEET_ID, SHEETS.TARGETS),
     getSheetValues(ENQUIRY_SHEET_ID, "Form responses 1"),
     getSheetValues(SHEET_ID, SHEETS.USERS).catch(() => [] as string[][]),
+    getSheetValues(SHEET_ID, SHEETS.EMAIL_RESPONSE_LOG).catch(() => [] as string[][]),
   ])
 
   // Build SE email → name map so enquiry rows can be filtered by SE name
@@ -30,56 +31,79 @@ export async function GET(req: NextRequest) {
 
   let data = targetRows.slice(1).map((row, i) => parseTarget(row, i + 2))
 
-  if (session.user.role !== "Admin") {
+  if (session.user.role === "SE" || session.user.role === "DR") {
+    data = data.filter((t) => t.seName === session.user.fullName)
+  } else if (session.user.role !== "Admin") {
     data = data.filter((t) => t.kam === session.user.kamName)
   }
 
   if (period) {
-    const periodData = data.filter((t) => t.period === period)
+    const activePeriod: string = period
+    const periodData = data.filter((t) => t.period === activePeriod)
 
-    // Enquiries targets carry forward automatically: if a client has no Enquiries
-    // target for this period, inherit the most recently added one (highest rowNum).
-    const allEnquiry = data.filter((t) => t.type === "Enquiries")
-    const hasEnqThisPeriod = new Set(
-      periodData.filter((t) => t.type === "Enquiries").map((t) => `${t.clientId}|${t.seName ?? ""}`)
-    )
-    const latestEnqByKey: Record<string, typeof allEnquiry[0]> = {}
-    allEnquiry.forEach((t) => {
-      const key = `${t.clientId}|${t.seName ?? ""}`
-      if (!latestEnqByKey[key] || t.rowNum > latestEnqByKey[key].rowNum) {
-        latestEnqByKey[key] = t
-      }
-    })
-    const inherited = Object.values(latestEnqByKey)
-      .filter((t) => !hasEnqThisPeriod.has(`${t.clientId}|${t.seName ?? ""}`))
-      .map((t) => ({ ...t, period }))
+    // Carry-forward helper: finds the latest row per (clientId, seName) key for a given
+    // type and synthesises a virtual row for the requested period if none exists yet.
+    // resetAchieved=true resets "achieved" to 0 (used for manual-count types like Data Collection).
+    function carryForward(type: string, resetAchieved = false) {
+      const hasPeriod = new Set(
+        periodData.filter((t) => t.type === type).map((t) => `${t.clientId}|${t.seName ?? ""}`)
+      )
+      const latest: Record<string, (typeof data)[0]> = {}
+      data.filter((t) => t.type === type).forEach((t) => {
+        const key = `${t.clientId}|${t.seName ?? ""}`
+        if (!latest[key] || t.rowNum > latest[key].rowNum) latest[key] = t
+      })
+      return Object.values(latest)
+        .filter((t) => !hasPeriod.has(`${t.clientId}|${t.seName ?? ""}`))
+        .map((t) => ({
+          ...t,
+          period: activePeriod,
+          ...(resetAchieved ? { achieved: "0", achievementPct: "0%", status: "Open" } : {}),
+        }))
+    }
 
-    data = [...periodData, ...inherited]
+    data = [
+      ...periodData,
+      ...carryForward("Enquiries"),
+      ...carryForward("Data Collection", true),
+      ...carryForward("Email Response"),
+    ]
   }
 
   // Auto-compute enquiry counts for Enquiries type (uses target.period for date range)
   const enriched = data.map((target) => {
-    if (target.type !== "Enquiries") return target
-    const range = parsePeriod(target.period)
-    if (!range) return target
+    if (target.type === "Enquiries") {
+      const range = parsePeriod(target.period)
+      if (!range) return target
+      const seName = (target.seName ?? "").trim().toLowerCase()
+      const count = enquiryRows.slice(1).filter((r) => {
+        const clientCode = r[COLS.ENQUIRY.CLIENT_CODE]
+        const dateStr = r[COLS.ENQUIRY.ENQUIRY_DATE] || r[COLS.ENQUIRY.TIMESTAMP]
+        if (clientCode !== target.clientId) return false
+        if (seName && seName !== "—") {
+          const email = (r[COLS.ENQUIRY.EMAIL] ?? "").toLowerCase().trim()
+          const resolvedSE = (seByEmail[email] ?? "").toLowerCase()
+          if (resolvedSE !== seName) return false
+        }
+        const d = parseFlexDate(dateStr)
+        return d !== null && d >= range.start && d <= range.end
+      }).length
+      return { ...target, enquiryCount: count }
+    }
 
-    const seName = (target.seName ?? "").trim().toLowerCase()
-    const count = enquiryRows.slice(1).filter((r) => {
-      const clientCode = r[COLS.ENQUIRY.CLIENT_CODE]
-      // Use ENQUIRY_DATE if filled, otherwise fall back to form TIMESTAMP
-      const dateStr = r[COLS.ENQUIRY.ENQUIRY_DATE] || r[COLS.ENQUIRY.TIMESTAMP]
-      if (clientCode !== target.clientId) return false
-      // Filter by SE: resolve the submitter email (col A) to a name via Users sheet
-      if (seName && seName !== "—") {
-        const email = (r[COLS.ENQUIRY.EMAIL] ?? "").toLowerCase().trim()
-        const resolvedSE = (seByEmail[email] ?? "").toLowerCase()
-        if (resolvedSE !== seName) return false
-      }
-      const d = parseFlexDate(dateStr)
-      return d !== null && d >= range.start && d <= range.end
-    }).length
+    // Auto-compute email response counts for Email Response type
+    if (target.type === "Email Response") {
+      const drName = (target.seName ?? "").trim().toLowerCase()
+      const count = emailResponseRows.slice(1).filter((r) => {
+        const rowPeriod = (r[COLS.EMAIL_RESPONSE.PERIOD] ?? "").trim()
+        const rowClient = (r[COLS.EMAIL_RESPONSE.CLIENT_ID] ?? "").trim()
+        const rowDR = (r[COLS.EMAIL_RESPONSE.DR_NAME] ?? "").trim().toLowerCase()
+        return rowPeriod === target.period && rowClient === target.clientId && rowDR === drName
+      }).length
+      return { ...target, emailResponseCount: count }
+    }
 
-    return { ...target, enquiryCount: count }
+    return target
   })
 
   return NextResponse.json(enriched)

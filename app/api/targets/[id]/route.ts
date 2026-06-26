@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
-import { getSheetValues, batchUpdate } from "@/lib/sheets"
+import { getSheetValues, appendRow, batchUpdate } from "@/lib/sheets"
 import { SHEET_ID, SHEETS, COLS } from "@/constants"
 import { esc } from "@/lib/utils"
 
@@ -11,6 +11,7 @@ export async function PATCH(
 ) {
   const session = await getServerSession(authOptions)
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+  if (session.user.role === "SE") return NextResponse.json({ error: "Forbidden" }, { status: 403 })
 
   const { id } = await params
   const rowNum = parseInt(id, 10)
@@ -21,9 +22,48 @@ export async function PATCH(
   const row = rows[rowNum - 1]
   if (!row) return NextResponse.json({ error: "Not found" }, { status: 404 })
 
-  // KAMs can only update their own targets and only the achieved field
   const targetKAM = row[COLS.TARGET.KAM]
-  if (session.user.role !== "Admin") {
+  const targetSE = row[COLS.TARGET.SE_NAME]
+  const targetType = row[COLS.TARGET.TYPE]
+  const rowPeriod = row[COLS.TARGET.PERIOD] ?? ""
+
+  // DR can only update achieved on their own Data Collection targets
+  if (session.user.role === "DR") {
+    if (targetSE !== session.user.fullName) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+    }
+    if (targetType === "Email Response") {
+      return NextResponse.json({ error: "Email Response count is auto-calculated from logged responses" }, { status: 400 })
+    }
+    if (body.type !== undefined || body.notes !== undefined || body.target !== undefined) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+    }
+
+    // If this is a carried-forward row (period mismatch), create a new row for the
+    // current period instead of overwriting the original week's data.
+    const activePeriod: string = body.period ?? rowPeriod
+    if (activePeriod && activePeriod !== rowPeriod && body.achieved !== undefined) {
+      const tgt = parseFloat(row[COLS.TARGET.TARGET]) || 0
+      const achieved = parseFloat(String(body.achieved)) || 0
+      const pct = tgt > 0 ? Math.round((achieved / tgt) * 100) : 0
+      const status = pct >= 100 ? "Achieved" : pct >= 70 ? "On Track" : pct >= 40 ? "Behind" : "At Risk"
+      await appendRow(SHEET_ID, SHEETS.TARGETS, [
+        esc(activePeriod),
+        esc(row[COLS.TARGET.KAM] ?? ""),
+        esc(targetSE),
+        esc(row[COLS.TARGET.CLIENT_ID] ?? ""),
+        esc(row[COLS.TARGET.COMPANY] ?? ""),
+        esc(String(tgt)),
+        esc(String(achieved)),
+        `${pct}%`,
+        status,
+        esc(row[COLS.TARGET.NOTES] ?? ""),
+        esc(targetType),
+      ])
+      return NextResponse.json({ success: true, created: true })
+    }
+  } else if (session.user.role !== "Admin") {
+    // KAMs can only update their own targets and only the achieved field
     if (targetKAM !== session.user.kamName) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 })
     }

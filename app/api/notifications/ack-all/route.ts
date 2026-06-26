@@ -8,6 +8,7 @@ import { esc, nowIST } from "@/lib/utils"
 export async function POST() {
   const session = await getServerSession(authOptions)
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+  if (session.user.role === "SE" || session.user.role === "DR") return NextResponse.json({ success: true, count: 0 })
 
   const rows = await getSheetValues(SHEET_ID, SHEETS.NOTIFICATION_LOG)
   const dataRows = rows.slice(1)

@@ -5,8 +5,8 @@ import { QueryProvider } from "@/components/providers/QueryProvider"
 import { Toaster } from "@/components/providers/ToastProvider"
 
 export const metadata: Metadata = {
-  title: "MOTM KAM Portal",
-  description: "Key Account Management Operations Portal — MOTM Technologies",
+  title: "Portal",
+  description: "",
 }
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

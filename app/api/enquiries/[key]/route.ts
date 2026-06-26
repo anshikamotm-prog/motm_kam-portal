@@ -11,6 +11,7 @@ export async function PATCH(
 ) {
   const session = await getServerSession(authOptions)
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+  if (session.user.role === "DR") return NextResponse.json({ error: "Forbidden" }, { status: 403 })
 
   const { key } = await params
   if (!key) return NextResponse.json({ error: "Invalid key" }, { status: 400 })

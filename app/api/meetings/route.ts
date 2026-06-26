@@ -24,7 +24,9 @@ export async function GET(req: NextRequest) {
   data = await markMissedMeetings(data)
 
   // Role filter
-  if (session.user.role !== "Admin") {
+  if (session.user.role === "SE") {
+    data = data.filter((m) => m.se === session.user.fullName)
+  } else if (session.user.role !== "Admin") {
     data = data.filter((m) => m.kam === session.user.kamName)
   } else if (filterKam) {
     data = data.filter((m) => m.kam === filterKam)
@@ -42,6 +44,7 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   const session = await getServerSession(authOptions)
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+  if (session.user.role === "SE" || session.user.role === "DR") return NextResponse.json({ error: "Forbidden" }, { status: 403 })
 
   const body = await req.json()
   const { title, clientId, company, meetingType, date, time, participants, notes } = body

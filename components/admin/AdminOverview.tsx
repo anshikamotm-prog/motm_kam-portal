@@ -60,9 +60,10 @@ export default function AdminOverview() {
           {kamBreakdown.map((k) => (
             <div key={k.kam} className="bg-white rounded-xl border border-slate-200 p-4">
               <div className="font-semibold text-slate-800 mb-2">{k.kam}</div>
-              <div className="grid grid-cols-3 gap-2 text-center text-xs">
+              <div className="grid grid-cols-4 gap-2 text-center text-xs">
                 <div><div className="text-lg font-bold text-slate-700">{k.total}</div><div className="text-slate-400">Total</div></div>
                 <div><div className="text-lg font-bold text-green-600">{k.green}</div><div className="text-slate-400">Green</div></div>
+                <div><div className="text-lg font-bold text-orange-500">{k.orange}</div><div className="text-slate-400">Orange</div></div>
                 <div><div className="text-lg font-bold text-red-600">{k.red}</div><div className="text-slate-400">Red</div></div>
               </div>
               {(k.atRisk > 0 || k.overdue > 0) && (

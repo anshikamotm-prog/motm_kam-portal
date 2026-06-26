@@ -1,14 +1,11 @@
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 import { redirect } from "next/navigation"
-import TasksView from "@/components/tasks/TasksView"
+import SEDashboard from "@/components/se/SEDashboard"
 
-export default async function TasksPage() {
+export default async function SEPage() {
   const session = await getServerSession(authOptions)
   if (!session) redirect("/login")
-  return (
-    <div className="max-w-4xl mx-auto w-full">
-      <TasksView />
-    </div>
-  )
+  if (session.user.role !== "SE") redirect("/dashboard")
+  return <SEDashboard />
 }

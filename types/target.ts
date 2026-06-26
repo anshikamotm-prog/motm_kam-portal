@@ -13,6 +13,8 @@ export interface Target {
   type: string
   /** Auto-computed for Enquiries type — not stored in sheet */
   enquiryCount?: number
+  /** Auto-computed for Email Response type — not stored in sheet */
+  emailResponseCount?: number
 }
 
 export interface AddTargetInput {

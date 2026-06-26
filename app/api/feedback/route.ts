@@ -9,6 +9,7 @@ import { esc, nowIST } from "@/lib/utils"
 export async function GET() {
   const session = await getServerSession(authOptions)
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+  if (session.user.role === "SE" || session.user.role === "DR") return NextResponse.json({ error: "Forbidden" }, { status: 403 })
 
   try {
     const rows = await getSheetValues(SHEET_ID, SHEETS.FEEDBACK_LOG)
@@ -35,6 +36,7 @@ export async function GET() {
 export async function POST(req: NextRequest) {
   const session = await getServerSession(authOptions)
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+  if (session.user.role === "SE" || session.user.role === "DR") return NextResponse.json({ error: "Forbidden" }, { status: 403 })
 
   const body = await req.json()
   const {

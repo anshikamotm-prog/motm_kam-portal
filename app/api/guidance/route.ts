@@ -9,6 +9,7 @@ import { esc, nowIST } from "@/lib/utils"
 export async function GET(req: NextRequest) {
   const session = await getServerSession(authOptions)
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+  if (session.user.role === "SE" || session.user.role === "DR") return NextResponse.json({ error: "Forbidden" }, { status: 403 })
 
   const { searchParams } = req.nextUrl
   const clientId = searchParams.get("clientId")

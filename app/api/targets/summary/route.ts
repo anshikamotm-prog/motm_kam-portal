@@ -58,7 +58,9 @@ export async function GET(req: NextRequest) {
   })
 
   let allTargets = targetRows.slice(1).map((row, i) => parseTarget(row, i + 2))
-  if (session.user.role !== "Admin") {
+  if (session.user.role === "SE") {
+    allTargets = allTargets.filter((t) => t.seName === session.user.fullName)
+  } else if (session.user.role !== "Admin") {
     allTargets = allTargets.filter((t) => t.kam === session.user.kamName)
   }
 

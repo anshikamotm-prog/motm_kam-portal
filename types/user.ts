@@ -12,8 +12,9 @@ export interface SessionUser {
   email: string
   name: string
   image?: string
-  role: "Admin" | "KAM" | "SE"
+  role: "Admin" | "KAM" | "SE" | "DR"
   kamName: string
+  fullName: string
 }
 
 declare module "next-auth" {
@@ -23,6 +24,7 @@ declare module "next-auth" {
   interface JWT {
     role: string
     kamName: string
+    fullName: string
     email?: string
     sheetLoaded?: boolean
   }

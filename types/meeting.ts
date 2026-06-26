@@ -35,13 +35,17 @@ export interface ScheduleMeetingInput {
   notes?: string
 }
 
+export interface ActionRow {
+  item: string
+  owner: string
+  dueDate: string
+}
+
 export interface CompleteMeetingInput {
   summary: string
   clientFeedback: string
   discussionPoints: string
-  actionItems: string
-  actionOwner: string
-  actionDueDate: string
+  actions: ActionRow[]
   momShared: "Yes" | "No" | "Pending"
   nextReviewDate: string
 }

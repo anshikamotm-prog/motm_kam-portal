@@ -12,8 +12,19 @@ export async function GET(
 ) {
   const session = await getServerSession(authOptions)
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+  if (session.user.role === "SE" || session.user.role === "DR") return NextResponse.json({ error: "Forbidden" }, { status: 403 })
 
   const { clientId } = await params
+
+  if (session.user.role !== "Admin") {
+    const clientRows = await getSheetValues(SHEET_ID, SHEETS.CLIENT_MASTER)
+    const clientRow = clientRows.slice(1).find((r) => r[COLS.CLIENT.ID] === clientId)
+    if (!clientRow) return NextResponse.json({ error: "Not found" }, { status: 404 })
+    if (clientRow[COLS.CLIENT.KAM] !== session.user.kamName) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+    }
+  }
+
   const rows = await getSheetValues(SHEET_ID, SHEETS.LEAD_QUALIFICATION)
   const data = rows
     .slice(1)
@@ -31,9 +42,19 @@ export async function POST(
 ) {
   const session = await getServerSession(authOptions)
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+  if (session.user.role === "SE" || session.user.role === "DR") return NextResponse.json({ error: "Forbidden" }, { status: 403 })
 
   const { clientId } = await params
   const body = await req.json()
+
+  if (session.user.role !== "Admin") {
+    const clientRows = await getSheetValues(SHEET_ID, SHEETS.CLIENT_MASTER)
+    const clientRow = clientRows.slice(1).find((r) => r[COLS.CLIENT.ID] === clientId)
+    if (!clientRow) return NextResponse.json({ error: "Not found" }, { status: 404 })
+    if (clientRow[COLS.CLIENT.KAM] !== session.user.kamName) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+    }
+  }
 
   const { company, leadSource, leadDetails, budget, decisionMaker, needIdentified, timeline, competition, notes } = body
 

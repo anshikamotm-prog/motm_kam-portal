@@ -23,6 +23,10 @@ export async function PATCH(
   const rowNum = rowIndex + 2
   const client = parseClient(rows[rowIndex + 1], rowNum)
 
+  // SE cannot edit client master
+  if (session.user.role === "SE" || session.user.role === "DR") {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+  }
   // KAMs can only edit their own clients
   if (session.user.role !== "Admin" && client.kam !== session.user.kamName) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 })

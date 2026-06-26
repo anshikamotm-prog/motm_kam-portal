@@ -15,6 +15,18 @@ export async function GET(
 
   const { clientId } = await params
 
+  // Verify the requesting user owns this client
+  if (session.user.role === "DR") return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+  if (session.user.role !== "Admin") {
+    const clientRows = await getSheetValues(SHEET_ID, SHEETS.CLIENT_MASTER)
+    const clientRow = clientRows.slice(1).find((r) => r[COLS.CLIENT.ID] === clientId)
+    if (!clientRow) return NextResponse.json({ error: "Not found" }, { status: 404 })
+    const owned = session.user.role === "SE"
+      ? clientRow[COLS.CLIENT.SE] === session.user.fullName
+      : clientRow[COLS.CLIENT.KAM] === session.user.kamName
+    if (!owned) return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+  }
+
   const [feedbackRows, meetingRows, taskRows, noteRows] = await Promise.all([
     getSheetValues(SHEET_ID, SHEETS.FEEDBACK_LOG),
     getSheetValues(SHEET_ID, SHEETS.MEETING_SCHEDULE),

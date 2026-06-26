@@ -25,6 +25,8 @@ export async function GET(req: NextRequest) {
           const mine =
             session.user.role === "Admin"
               ? all
+              : session.user.role === "SE" || session.user.role === "DR"
+              ? []
               : all.filter((r) => r[COLS.NOTIFICATION.KAM] === session.user.kamName)
           const unread = mine.filter((r) => r[COLS.NOTIFICATION.ACKNOWLEDGED] !== "Yes").length
           send({ unread })

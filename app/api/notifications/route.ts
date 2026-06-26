@@ -8,6 +8,7 @@ import { SHEET_ID, SHEETS, COLS } from "@/constants"
 export async function GET() {
   const session = await getServerSession(authOptions)
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+  if (session.user.role === "SE" || session.user.role === "DR") return NextResponse.json([])
 
   const rows = await getSheetValues(SHEET_ID, SHEETS.NOTIFICATION_LOG)
   let data = rows.slice(1).map((row, i) => parseNotification(row, i + 2))

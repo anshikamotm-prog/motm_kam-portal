@@ -10,6 +10,7 @@ import { getKAMNames } from "@/lib/getKAMNames"
 export async function GET() {
   const session = await getServerSession(authOptions)
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+  if (session.user.role === "SE" || session.user.role === "DR") return NextResponse.json({ error: "Forbidden" }, { status: 403 })
 
   const [clientRows, meetingRows, taskRows, feedbackRows, allKamNames] = await Promise.all([
     getSheetValues(SHEET_ID, SHEETS.CLIENT_MASTER),

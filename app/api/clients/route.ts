@@ -16,7 +16,9 @@ export async function GET() {
     const filtered =
       session.user.role === "Admin"
         ? data
-        : data.filter((c) => c.kam === session.user.kamName)
+        : session.user.role === "SE"
+        ? data.filter((c) => c.se === session.user.fullName)
+        : data.filter((c) => c.kam === session.user.kamName) // KAM and DR both see their KAM team's clients
 
     return NextResponse.json(filtered)
   } catch (err) {

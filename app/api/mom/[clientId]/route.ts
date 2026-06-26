@@ -18,6 +18,15 @@ export async function GET(
   const clientRow = clientRows.slice(1).find((r) => r[COLS.CLIENT.ID] === clientId)
   if (!clientRow) return NextResponse.json({ error: "Client not found" }, { status: 404 })
 
+  // Verify ownership
+  if (session.user.role === "DR") return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+  if (session.user.role !== "Admin") {
+    const owned = session.user.role === "SE"
+      ? clientRow[COLS.CLIENT.SE] === session.user.fullName
+      : clientRow[COLS.CLIENT.KAM] === session.user.kamName
+    if (!owned) return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+  }
+
   const sheetId = clientRow[COLS.CLIENT.SHEET_ID]
   if (!sheetId) return NextResponse.json([])
 

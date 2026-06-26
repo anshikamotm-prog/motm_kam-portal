@@ -9,6 +9,7 @@ import type { Enquiry } from "@/types/guidance"
 export async function GET() {
   const session = await getServerSession(authOptions)
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+  if (session.user.role === "DR") return NextResponse.json({ error: "Forbidden" }, { status: 403 })
 
   try {
   const [enquiryRows, trackerRows, userRows] = await Promise.all([
@@ -56,8 +57,11 @@ export async function GET() {
       }
     })
 
-  // KAMs see only their own enquiries — column C (TEAM_NAME) in the form IS the KAM name
-  if (session.user.role !== "Admin") {
+  // Role-based filter
+  if (session.user.role === "SE") {
+    const seName = (session.user.fullName ?? "").trim().toLowerCase()
+    enquiries = enquiries.filter((e) => (e.seName ?? "").trim().toLowerCase() === seName)
+  } else if (session.user.role !== "Admin") {
     const kamName = (session.user.kamName ?? "").trim().toLowerCase()
     enquiries = enquiries.filter((e) =>
       (e.teamName ?? "").trim().toLowerCase() === kamName

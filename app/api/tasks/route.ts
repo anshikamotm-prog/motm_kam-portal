@@ -22,7 +22,9 @@ export async function GET(req: NextRequest) {
   let data = rows.slice(1).map((row, i) => parseTask(row, i + 2))
 
   // Role filter
-  if (session.user.role !== "Admin") {
+  if (session.user.role === "SE" || session.user.role === "DR") {
+    data = data.filter((t) => t.assignedTo === session.user.fullName)
+  } else if (session.user.role !== "Admin") {
     data = data.filter((t) => t.kam === session.user.kamName)
   } else if (filterKam) {
     data = data.filter((t) => t.kam === filterKam)

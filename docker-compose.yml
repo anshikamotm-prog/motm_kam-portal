@@ -6,7 +6,7 @@ services:
     container_name: motm-kam-portal
     restart: unless-stopped
     ports:
-      - "4011:4011"
+      - "127.0.0.1:4011:4011"
     env_file:
       - .env
     environment:

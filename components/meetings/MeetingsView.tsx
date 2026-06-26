@@ -1,7 +1,7 @@
 "use client"
 import { useState, useEffect, useRef } from "react"
 import { useSearchParams } from "next/navigation"
-import { useMeetings, useCompleteMeeting, useRescheduleMeeting, useScheduleMeeting } from "@/hooks/useMeetings"
+import { useMeetings, useCompleteMeeting, useRescheduleMeeting, useScheduleMeeting, useCancelMeeting } from "@/hooks/useMeetings"
 import { useClients } from "@/hooks/useClients"
 import { MeetingStatusBadge } from "@/components/shared/StatusBadge"
 import { Button } from "@/components/ui/button"
@@ -14,7 +14,7 @@ import { Badge } from "@/components/ui/badge"
 import { PageSpinner } from "@/components/shared/Spinner"
 import { formatDate } from "@/lib/utils"
 import { MEETING_TYPES, MEETING_STATUSES, ACTION_OWNERS } from "@/constants"
-import type { Meeting, CompleteMeetingInput } from "@/types/meeting"
+import type { Meeting, CompleteMeetingInput, ActionRow } from "@/types/meeting"
 import { CalendarPlus, CheckCircle, RotateCcw } from "lucide-react"
 
 const SUB_TABS = ["All", "Today", "Upcoming", "Pending MOM", "Missed", "Completed"]
@@ -29,6 +29,7 @@ export default function MeetingsView() {
   const [initialClientId, setInitialClientId] = useState("")
   const [completeTarget, setCompleteTarget] = useState<Meeting | null>(null)
   const [rescheduleTarget, setRescheduleTarget] = useState<Meeting | null>(null)
+  const cancelMeeting = useCancelMeeting()
 
   // Auto-open schedule modal and pre-fill client from ?clientId= query param
   useEffect(() => {
@@ -114,14 +115,20 @@ export default function MeetingsView() {
                 {m.summary && <div className="text-xs text-slate-500 mt-1 line-clamp-1">{m.summary}</div>}
               </div>
               <div className="flex gap-1.5 flex-shrink-0">
-                {(m.status === "Scheduled" || m.status === "Pending Documentation") && (
+                {(m.status === "Scheduled" || m.status === "Pending Documentation" || m.status === "Rescheduled") && (
                   <Button size="sm" variant="outline" onClick={() => setCompleteTarget(m)}>
                     <CheckCircle className="h-3.5 w-3.5" /> Complete
                   </Button>
                 )}
-                {m.status === "Scheduled" && (
+                {(m.status === "Scheduled" || m.status === "Rescheduled") && (
                   <Button size="sm" variant="ghost" onClick={() => setRescheduleTarget(m)}>
                     <RotateCcw className="h-3.5 w-3.5" />
+                  </Button>
+                )}
+                {m.status === "Rescheduled" && (
+                  <Button size="sm" variant="ghost" className="text-red-500 hover:text-red-600"
+                    onClick={() => { if (confirm("Cancel this meeting?")) cancelMeeting.mutate(m.meetingId) }}>
+                    Cancel
                   </Button>
                 )}
               </div>
@@ -180,8 +187,18 @@ function ScheduleMeetingModal({ open, clients, initialClientId = "", onClose }: 
 
 function CompleteMeetingModal({ meeting, onClose }: { meeting: Meeting; onClose: () => void }) {
   const complete = useCompleteMeeting()
-  const [form, setForm] = useState<CompleteMeetingInput>({ summary: "", clientFeedback: "", discussionPoints: "", actionItems: "", actionOwner: "", actionDueDate: "", momShared: "Pending", nextReviewDate: "" })
-  const set = (k: keyof CompleteMeetingInput, v: string) => setForm((f) => ({ ...f, [k]: v }))
+  const emptyAction = (): ActionRow => ({ item: "", owner: "", dueDate: "" })
+  const [form, setForm] = useState<CompleteMeetingInput>({
+    summary: "", clientFeedback: "", discussionPoints: "",
+    actions: [emptyAction()], momShared: "Pending", nextReviewDate: "",
+  })
+  const set = (k: keyof Omit<CompleteMeetingInput, "actions">, v: string) => setForm((f) => ({ ...f, [k]: v }))
+  const updateAction = (i: number, k: keyof ActionRow, v: string) =>
+    setForm((f) => { const a = [...f.actions]; a[i] = { ...a[i], [k]: v }; return { ...f, actions: a } })
+  const addAction = () => setForm((f) => ({ ...f, actions: [...f.actions, emptyAction()] }))
+  const removeAction = (i: number) => setForm((f) => ({ ...f, actions: f.actions.filter((_, idx) => idx !== i) }))
+
+  const hasAction = form.actions.some((a) => a.item.trim())
 
   return (
     <Dialog open onOpenChange={onClose}>
@@ -191,14 +208,25 @@ function CompleteMeetingModal({ meeting, onClose }: { meeting: Meeting; onClose:
           <div className="col-span-2 space-y-1"><Label className="text-xs">Summary *</Label><Textarea value={form.summary} onChange={(e) => set("summary", e.target.value)} /></div>
           <div className="col-span-2 space-y-1"><Label className="text-xs">Client Feedback</Label><Textarea value={form.clientFeedback} onChange={(e) => set("clientFeedback", e.target.value)} className="min-h-[60px]" /></div>
           <div className="col-span-2 space-y-1"><Label className="text-xs">Discussion Points</Label><Textarea value={form.discussionPoints} onChange={(e) => set("discussionPoints", e.target.value)} className="min-h-[60px]" /></div>
-          <div className="col-span-2 space-y-1"><Label className="text-xs">Action Items *</Label><Textarea value={form.actionItems} onChange={(e) => set("actionItems", e.target.value)} /></div>
-          <div className="space-y-1"><Label className="text-xs">Action Owner</Label>
-            <Select value={form.actionOwner} onValueChange={(v) => set("actionOwner", v)}>
-              <SelectTrigger><SelectValue placeholder="Select" /></SelectTrigger>
-              <SelectContent>{ACTION_OWNERS.map((o) => <SelectItem key={o} value={o}>{o}</SelectItem>)}</SelectContent>
-            </Select>
+
+          {/* Action rows */}
+          <div className="col-span-2 space-y-2">
+            <div className="grid grid-cols-[1fr_1fr_auto_auto] gap-1.5 text-xs text-slate-500 font-medium px-0.5">
+              <span>Action Item *</span><span>Owner</span><span className="w-28">Due Date</span><span></span>
+            </div>
+            {form.actions.map((action, i) => (
+              <div key={i} className="grid grid-cols-[1fr_1fr_auto_auto] gap-1.5 items-center">
+                <Input value={action.item} onChange={(e) => updateAction(i, "item", e.target.value)} placeholder="Action..." className="text-xs h-8" />
+                <Input value={action.owner} onChange={(e) => updateAction(i, "owner", e.target.value)} placeholder="Owner..." className="text-xs h-8" />
+                <Input type="date" value={action.dueDate} onChange={(e) => updateAction(i, "dueDate", e.target.value)} className="text-xs h-8 w-28" />
+                {form.actions.length > 1 && (
+                  <Button type="button" size="sm" variant="ghost" onClick={() => removeAction(i)} className="h-8 w-8 p-0 text-slate-400 hover:text-red-500">×</Button>
+                )}
+              </div>
+            ))}
+            <Button type="button" size="sm" variant="outline" onClick={addAction} className="text-xs h-7">+ Add Action</Button>
           </div>
-          <div className="space-y-1"><Label className="text-xs">Action Due Date</Label><Input type="date" value={form.actionDueDate} onChange={(e) => set("actionDueDate", e.target.value)} /></div>
+
           <div className="space-y-1"><Label className="text-xs">MOM Shared</Label>
             <Select value={form.momShared} onValueChange={(v) => set("momShared", v as CompleteMeetingInput["momShared"])}>
               <SelectTrigger><SelectValue /></SelectTrigger>
@@ -209,7 +237,7 @@ function CompleteMeetingModal({ meeting, onClose }: { meeting: Meeting; onClose:
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={onClose}>Cancel</Button>
-          <Button disabled={!form.summary || !form.actionItems} onClick={() => { complete.mutate({ id: meeting.meetingId, ...form }); onClose() }}>Complete</Button>
+          <Button disabled={!form.summary || !hasAction} onClick={() => { complete.mutate({ id: meeting.meetingId, ...form }); onClose() }}>Complete</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

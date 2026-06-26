@@ -91,7 +91,9 @@ export default function AdminPerformanceView() {
               </div>
               {rows.map((t) => {
                 const isEnq = t.type === "Enquiries"
-                const achieved = isEnq ? (t.enquiryCount ?? 0) : parseInt(t.achieved) || 0
+                const isER = t.type === "Email Response"
+                const autoCount = isEnq || isER
+                const achieved = isEnq ? (t.enquiryCount ?? 0) : isER ? (t.emailResponseCount ?? 0) : parseInt(t.achieved) || 0
                 const target = parseInt(t.target) || 0
                 const pct = target > 0 ? Math.round((achieved / target) * 100) : 0
                 return (
@@ -100,7 +102,8 @@ export default function AdminPerformanceView() {
                       <div className="flex items-center gap-2 flex-wrap">
                         <span className="text-sm font-medium text-slate-800">{t.company}</span>
                         <Badge variant="gray" className="text-[10px]">{t.type}</Badge>
-                        {t.seName && <span className="text-[10px] text-slate-400">SE: {t.seName}</span>}
+                        {t.seName && <span className="text-[10px] text-slate-400">SE/DR: {t.seName}</span>}
+                        {autoCount && <Badge variant="blue" className="text-[10px]">Auto-counted</Badge>}
                       </div>
                       <div className="mt-1.5 flex items-center gap-3">
                         <ComplianceBar value={achieved} max={target || 1} className="flex-1 max-w-32" />
@@ -108,10 +111,19 @@ export default function AdminPerformanceView() {
                         <TargetStatusBadge status={t.status} />
                       </div>
                     </div>
-                    {!isEnq && (
-                      <input type="number" defaultValue={achieved} min={0}
+                    <div className="flex flex-col items-center gap-1">
+                      <span className="text-[10px] text-slate-400">Target</span>
+                      <input key={`tgt-${t.rowNum}`} type="number" defaultValue={target} min={0}
                         className="w-20 h-8 rounded-lg border border-slate-200 px-2 text-sm text-center focus:outline-none focus:ring-2 focus:ring-[#1e3a5f]"
-                        onBlur={(e) => { const val = parseInt(e.target.value); if (!isNaN(val) && val !== achieved) updateTarget.mutate({ rowNum: t.rowNum, achieved: val }) }} />
+                        onBlur={(e) => { const val = parseInt(e.target.value); if (!isNaN(val) && val !== target) updateTarget.mutate({ rowNum: t.rowNum, target: val }) }} />
+                    </div>
+                    {!autoCount && (
+                      <div className="flex flex-col items-center gap-1">
+                        <span className="text-[10px] text-slate-400">Achieved</span>
+                        <input key={`ach-${t.rowNum}`} type="number" defaultValue={achieved} min={0}
+                          className="w-20 h-8 rounded-lg border border-slate-200 px-2 text-sm text-center focus:outline-none focus:ring-2 focus:ring-[#1e3a5f]"
+                          onBlur={(e) => { const val = parseInt(e.target.value); if (!isNaN(val) && val !== achieved) updateTarget.mutate({ rowNum: t.rowNum, achieved: val }) }} />
+                      </div>
                     )}
                   </div>
                 )
@@ -143,8 +155,10 @@ function SetTargetsView({ clients, period, existingTargets, kamNames }: {
   const bulkSave = useBulkSaveTargets()
   const [search, setSearch] = useState("")
   const [filterKam, setFilterKam] = useState("All")
-  const [rows, setRows] = useState<Record<string, { target: string; type: string }>>({})
+  const [rows, setRows] = useState<Record<string, { target: string; type: string; drName?: string }>>({})
   const [lastSaved, setLastSaved] = useState<number | null>(null)
+
+  const DR_TYPES = ["Data Collection", "Email Response"]
 
   const existingByClient = useMemo(() => {
     const map: Record<string, typeof existingTargets> = {}
@@ -168,14 +182,18 @@ function SetTargetsView({ clients, period, existingTargets, kamNames }: {
 
   const handleSaveAll = () => {
     if (!dirtyRows.length) return
-    const payload = dirtyRows.map((c) => ({
-      kam: c.kam,
-      seName: c.se ?? "",
-      clientId: c.clientId,
-      company: c.company,
-      target: rows[c.clientId].target,
-      type: rows[c.clientId]?.type ?? "Visits",
-    }))
+    const payload = dirtyRows.map((c) => {
+      const row = rows[c.clientId]
+      const isDR = DR_TYPES.includes(row?.type ?? "")
+      return {
+        kam: c.kam,
+        seName: isDR ? (row?.drName ?? "") : (c.se ?? ""),
+        clientId: c.clientId,
+        company: c.company,
+        target: row.target,
+        type: row?.type ?? "Visits",
+      }
+    })
     bulkSave.mutate(
       { period, rows: payload },
       {
@@ -234,7 +252,7 @@ function SetTargetsView({ clients, period, existingTargets, kamNames }: {
           <table className="w-full text-sm">
             <thead className="bg-slate-50 border-b border-slate-200">
               <tr>
-                {["Company", "KAM", "SE", "Existing Targets", "Type", "New Target"].map((h) => (
+                {["Company", "KAM", "SE", "Existing Targets", "Type", "DR Name", "New Target"].map((h) => (
                   <th key={h} className="px-3 py-2.5 text-left text-xs font-semibold text-slate-500 whitespace-nowrap">{h}</th>
                 ))}
               </tr>
@@ -281,13 +299,31 @@ function SetTargetsView({ clients, period, existingTargets, kamNames }: {
                     <td className="px-3 py-2.5">
                       <Select
                         value={row.type}
-                        onValueChange={(v) => setRows((r) => ({ ...r, [c.clientId]: { ...(r[c.clientId] ?? { target: "" }), type: v } }))}
+                        onValueChange={(v) => setRows((r) => {
+                          const prev = r[c.clientId] ?? { target: "", type: "Visits" }
+                          const defaultTarget = v === "Data Collection" ? "40" : v === "Email Response" ? "1" : prev.target
+                          return { ...r, [c.clientId]: { ...prev, type: v, target: defaultTarget } }
+                        })}
                       >
                         <SelectTrigger className="h-8 w-28 text-xs"><SelectValue /></SelectTrigger>
                         <SelectContent>
                           {[...TARGET_TYPES].map((t) => <SelectItem key={t} value={t}>{t}</SelectItem>)}
                         </SelectContent>
                       </Select>
+                    </td>
+                    <td className="px-3 py-2.5">
+                      {DR_TYPES.includes(row.type) ? (
+                        <Input
+                          placeholder="DR full name"
+                          value={row.drName ?? ""}
+                          onChange={(e) =>
+                            setRows((r) => ({ ...r, [c.clientId]: { ...(r[c.clientId] ?? { target: "", type: "Data Collection" }), drName: e.target.value } }))
+                          }
+                          className="h-8 w-36 text-xs"
+                        />
+                      ) : (
+                        <span className="text-xs text-slate-300">—</span>
+                      )}
                     </td>
                     <td className="px-3 py-2.5">
                       <Input

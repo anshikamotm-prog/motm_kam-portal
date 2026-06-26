@@ -48,3 +48,12 @@ export function useRescheduleMeeting() {
     onSuccess: () => qc.invalidateQueries({ queryKey: ["meetings"] }),
   })
 }
+
+export function useCancelMeeting() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (id: string) =>
+      fetch(`/api/meetings/${id}/cancel`, { method: "POST" }).then((r) => r.json()),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["meetings"] }),
+  })
+}

@@ -2,6 +2,7 @@
 import { useState } from "react"
 import type { Client } from "@/types/client"
 import { useUpdateClient } from "@/hooks/useClients"
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import { HealthDot } from "@/components/shared/HealthDot"
 import { HealthBadge, FeedbackBadge, ClientStatusBadge } from "@/components/shared/StatusBadge"
 import { Button } from "@/components/ui/button"
@@ -11,7 +12,7 @@ import { Label } from "@/components/ui/label"
 import { Badge } from "@/components/ui/badge"
 import { formatDate, daysSince } from "@/lib/utils"
 import { STATUS_OPTIONS, HEALTH_OPTIONS, FEEDBACK_STATUS } from "@/constants"
-import { ExternalLink, MessageSquare, CalendarPlus, Clock, FileText, Star } from "lucide-react"
+import { ExternalLink, MessageSquare, CalendarPlus, FileText, Star, ChevronDown, ChevronUp, Plus } from "lucide-react"
 
 interface Props {
   client: Client
@@ -29,7 +30,23 @@ export function ClientDetail({ client, onUpdated }: Props) {
   })
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
+  const [showMOM, setShowMOM] = useState(false)
   const update = useUpdateClient()
+  const qc = useQueryClient()
+
+  const { data: momEntries = [], isLoading: momLoading } = useQuery<any[]>({
+    queryKey: ["mom", client.clientId],
+    queryFn: () => fetch(`/api/mom/${client.clientId}`).then((r) => r.json()),
+    enabled: showMOM,
+  })
+
+  const createTask = useMutation({
+    mutationFn: (data: object) => fetch("/api/tasks", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(data),
+    }).then((r) => r.json()),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["tasks"] }),
+  })
 
   const handleSave = async () => {
     setSaving(true)
@@ -177,6 +194,70 @@ export function ClientDetail({ client, onUpdated }: Props) {
           )}
         </div>
       </div>
+
+      {/* MOM History */}
+      {client.sheetId && (
+        <div className="rounded-xl border border-slate-200 overflow-hidden">
+          <button
+            onClick={() => setShowMOM((v) => !v)}
+            className="w-full flex items-center justify-between px-4 py-2.5 bg-slate-50 text-sm font-semibold text-slate-700 hover:bg-slate-100"
+          >
+            <span>MOM History</span>
+            {showMOM ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+          </button>
+          {showMOM && (
+            <div className="divide-y divide-slate-100">
+              {momLoading && <div className="px-4 py-6 text-xs text-slate-400 text-center">Loading...</div>}
+              {!momLoading && momEntries.length === 0 && (
+                <div className="px-4 py-6 text-xs text-slate-400 text-center">No MOM records found</div>
+              )}
+              {momEntries.map((mom, i) => (
+                <div key={i} className="px-4 py-3 space-y-1.5">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs font-semibold text-slate-700">{mom.date}</span>
+                      {mom.meetingType && <Badge variant="gray" className="text-[10px]">{mom.meetingType}</Badge>}
+                    </div>
+                    {mom.actionItems && (
+                      <Button
+                        size="sm" variant="outline"
+                        className="h-6 text-[10px] gap-1 px-2"
+                        onClick={() => createTask.mutate({
+                          clientId: client.clientId,
+                          company: client.company,
+                          title: `MOM Action — ${mom.date}`,
+                          description: mom.actionItems,
+                          priority: "Medium",
+                          dueDate: mom.nextMeetingDate || new Date().toISOString().split("T")[0],
+                          source: "MOM",
+                        })}
+                      >
+                        <Plus className="h-3 w-3" /> Create Task
+                      </Button>
+                    )}
+                  </div>
+                  {mom.attendees && <div className="text-[10px] text-slate-400">Attendees: {mom.attendees}</div>}
+                  {mom.discussionPoints && (
+                    <div className="text-xs text-slate-600 bg-slate-50 rounded px-2 py-1">
+                      <span className="font-medium text-slate-500">Discussion: </span>{mom.discussionPoints}
+                    </div>
+                  )}
+                  {mom.actionItems && (
+                    <div className="text-xs text-slate-600 bg-blue-50 rounded px-2 py-1">
+                      <span className="font-medium text-blue-600">Actions: </span>{mom.actionItems}
+                    </div>
+                  )}
+                  {mom.decisionsTaken && (
+                    <div className="text-xs text-slate-600 bg-green-50 rounded px-2 py-1">
+                      <span className="font-medium text-green-600">Decisions: </span>{mom.decisionsTaken}
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
     </div>
   )
 }
