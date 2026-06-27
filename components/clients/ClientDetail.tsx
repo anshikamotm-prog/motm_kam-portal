@@ -165,7 +165,7 @@ export function ClientDetail({ client, onUpdated }: Props) {
           </a>
         )}
         {client.dashboardId && (
-          <a href={`https://docs.google.com/spreadsheets/d/${client.dashboardId}`} target="_blank" rel="noopener noreferrer"
+          <a href={client.dashboardId} target="_blank" rel="noopener noreferrer"
             className="inline-flex items-center gap-1 text-xs text-[#0369a1] hover:underline">
             <Star className="h-3.5 w-3.5" /> Dashboard
             <ExternalLink className="h-3 w-3" />
