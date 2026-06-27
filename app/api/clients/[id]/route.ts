@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
-import { getSheetValues, batchUpdate } from "@/lib/sheets"
+import { getSheetValues, batchUpdate, colToLetter } from "@/lib/sheets"
 import { parseClient } from "@/lib/sheets-helpers"
 import { SHEET_ID, SHEETS, COLS } from "@/constants"
 import { esc, nowIST } from "@/lib/utils"
@@ -46,7 +46,7 @@ export async function PATCH(
 
   for (const [key, col] of Object.entries(map)) {
     if (body[key] !== undefined) {
-      const colLetter = String.fromCharCode(64 + col)
+      const colLetter = colToLetter(col)
       updates.push({ range: `${SHEETS.CLIENT_MASTER}!${colLetter}${rowNum}`, values: [[esc(String(body[key]))]] })
     }
   }

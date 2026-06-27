@@ -75,6 +75,11 @@ export async function PATCH(
   const type = body.type ?? row[COLS.TARGET.TYPE]
   const updates: Array<{ range: string; values: unknown[][] }> = []
 
+  // Email Response is always auto-counted from logged responses — block manual achieved updates for all roles
+  if (type === "Email Response" && body.achieved !== undefined) {
+    return NextResponse.json({ error: "Email Response count is auto-calculated from logged responses" }, { status: 400 })
+  }
+
   if (type !== "Enquiries" && body.achieved !== undefined) {
     const target = parseFloat(row[COLS.TARGET.TARGET]) || 0
     const achieved = parseFloat(String(body.achieved)) || 0

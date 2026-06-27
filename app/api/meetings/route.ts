@@ -24,7 +24,7 @@ export async function GET(req: NextRequest) {
   data = await markMissedMeetings(data)
 
   // Role filter
-  if (session.user.role === "SE") {
+  if (session.user.role === "SE" || session.user.role === "DR") {
     data = data.filter((m) => m.se === session.user.fullName)
   } else if (session.user.role !== "Admin") {
     data = data.filter((m) => m.kam === session.user.kamName)

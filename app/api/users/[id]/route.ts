@@ -28,7 +28,8 @@ export async function PUT(
     ])
   } else {
     const rowNum = parseInt(id, 10)
-    if (isNaN(rowNum)) return NextResponse.json({ error: "Invalid id" }, { status: 400 })
+    if (isNaN(rowNum) || rowNum < 2) return NextResponse.json({ error: "Invalid id" }, { status: 400 })
+    if (rowNum > rows.length) return NextResponse.json({ error: "Row not found" }, { status: 404 })
     await batchUpdate(SHEET_ID, [
       { range: `${SHEETS.USERS}!A${rowNum}`, values: [[esc(email)]] },
       { range: `${SHEETS.USERS}!B${rowNum}`, values: [[esc(fullName ?? "")]] },

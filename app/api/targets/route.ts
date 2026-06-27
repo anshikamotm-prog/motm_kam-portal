@@ -32,7 +32,8 @@ export async function GET(req: NextRequest) {
   let data = targetRows.slice(1).map((row, i) => parseTarget(row, i + 2))
 
   if (session.user.role === "SE" || session.user.role === "DR") {
-    data = data.filter((t) => t.seName === session.user.fullName)
+    const myName = session.user.fullName.trim().toLowerCase()
+    data = data.filter((t) => (t.seName ?? "").trim().toLowerCase() === myName)
   } else if (session.user.role !== "Admin") {
     data = data.filter((t) => t.kam === session.user.kamName)
   }

@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
+import { timingSafeEqual } from "crypto"
 import { getSheetValues } from "@/lib/sheets"
 import { parseClient, parseMeeting, parseTask } from "@/lib/sheets-helpers"
 import { SHEET_ID, SHEETS } from "@/constants"
@@ -6,10 +7,12 @@ import { logNotification, checkFeedbackOverdue, checkOverdueTasks, markMissedMee
 import { daysSince, nowIST } from "@/lib/utils"
 
 export async function POST(req: NextRequest) {
-  const secret = req.headers.get("authorization")?.replace("Bearer ", "")
-  if (secret !== process.env.CRON_SECRET) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-  }
+  const secret = req.headers.get("authorization")?.replace("Bearer ", "") ?? ""
+  const expected = process.env.CRON_SECRET ?? ""
+  const valid = expected.length > 0 &&
+    secret.length === expected.length &&
+    timingSafeEqual(Buffer.from(secret), Buffer.from(expected))
+  if (!valid) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
 
   const [clientRows, meetingRows, taskRows] = await Promise.all([
     getSheetValues(SHEET_ID, SHEETS.CLIENT_MASTER),

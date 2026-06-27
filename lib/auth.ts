@@ -10,7 +10,7 @@ export const authOptions: NextAuthOptions = {
       clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
     }),
   ],
-  session: { strategy: "jwt" },
+  session: { strategy: "jwt", maxAge: 12 * 60 * 60 }, // 12-hour sessions
   pages: { signIn: "/login" },
   callbacks: {
     async signIn({ user }) {
@@ -39,16 +39,18 @@ export const authOptions: NextAuthOptions = {
           )
           if (match) {
             if (match[COLS.USER.ACTIVE]?.toLowerCase() !== "yes") {
-              // User deactivated mid-session — strip to minimum privilege
+              // Deactivated mid-session — strip privileges and keep sheetLoaded=false
+              // so the check re-runs on every subsequent request until they log out.
               token.role = "KAM"
               token.kamName = ""
+              token.fullName = ""
             } else {
               token.role = (match[COLS.USER.ROLE] ?? "KAM") as "Admin" | "KAM" | "SE"
               token.kamName = match[COLS.USER.KAM_NAME] ?? ""
               token.fullName = match[COLS.USER.FULL_NAME] ?? ""
+              token.sheetLoaded = true
             }
             token.email = email
-            token.sheetLoaded = true
           } else {
             // User removed from sheet — strip all privileges and mark loaded
             token.role = "KAM"

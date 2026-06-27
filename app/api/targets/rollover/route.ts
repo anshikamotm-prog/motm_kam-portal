@@ -15,8 +15,11 @@ export async function POST(req: NextRequest) {
   const data = rows.slice(1)
 
   const currentPeriod = getCurrentPeriod()
-  const currentClientIds = new Set(
-    data.filter((r) => r[COLS.TARGET.PERIOD] === currentPeriod).map((r) => r[COLS.TARGET.CLIENT_ID]),
+  // Dedup key: clientId + type + seName so all target types roll over independently
+  const currentKeys = new Set(
+    data
+      .filter((r) => r[COLS.TARGET.PERIOD] === currentPeriod)
+      .map((r) => `${r[COLS.TARGET.CLIENT_ID]}|${r[COLS.TARGET.TYPE] ?? ""}|${r[COLS.TARGET.SE_NAME] ?? ""}`)
   )
 
   // Find the most recently added distinct period that isn't current
@@ -28,21 +31,21 @@ export async function POST(req: NextRequest) {
 
   let rolled = 0
   for (const row of lastRows) {
-    const clientId = row[COLS.TARGET.CLIENT_ID]
-    if (currentClientIds.has(clientId)) continue
+    const key = `${row[COLS.TARGET.CLIENT_ID]}|${row[COLS.TARGET.TYPE] ?? ""}|${row[COLS.TARGET.SE_NAME] ?? ""}`
+    if (currentKeys.has(key)) continue
 
     await appendRow(SHEET_ID, SHEETS.TARGETS, [
       esc(currentPeriod),
       esc(row[COLS.TARGET.KAM]),
       esc(row[COLS.TARGET.SE_NAME]),
-      esc(clientId),
+      esc(row[COLS.TARGET.CLIENT_ID]),
       esc(row[COLS.TARGET.COMPANY]),
       esc(row[COLS.TARGET.TARGET]),
       "0", "0%", "Open",
       esc(row[COLS.TARGET.NOTES] ?? ""),
       esc(row[COLS.TARGET.TYPE] ?? "Visits"),
     ])
-    currentClientIds.add(clientId)
+    currentKeys.add(key)
     rolled++
   }
 

@@ -27,8 +27,8 @@ export function formatDate(date: string | Date | null | undefined): string {
 
 export function daysSince(date: string | null | undefined): number | null {
   if (!date) return null
-  const d = new Date(date)
-  if (isNaN(d.getTime())) return null
+  const d = parseFlexDate(date)
+  if (!d) return null
   return Math.floor((Date.now() - d.getTime()) / 86_400_000)
 }
 
