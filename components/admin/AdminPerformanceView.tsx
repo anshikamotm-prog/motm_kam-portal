@@ -10,7 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Input } from "@/components/ui/input"
 import { ComplianceBar } from "@/components/shared/ComplianceBar"
 import { PageSpinner } from "@/components/shared/Spinner"
-import { getCurrentPeriod } from "@/lib/utils"
+import { getCurrentPeriod, formatPeriodLabel } from "@/lib/utils"
 import { TARGET_TYPES } from "@/constants"
 import { Search } from "lucide-react"
 import EnquiryPerformanceView from "@/components/admin/EnquiryPerformanceView"
@@ -68,8 +68,8 @@ export default function AdminPerformanceView() {
       {/* Period + Rollover */}
       <div className="flex gap-2 items-center flex-wrap">
         <Select value={effectivePeriod} onValueChange={setPeriod}>
-          <SelectTrigger className="w-48"><SelectValue /></SelectTrigger>
-          <SelectContent>{periods.map((p) => <SelectItem key={p} value={p}>{p}</SelectItem>)}</SelectContent>
+          <SelectTrigger className="w-56"><SelectValue /></SelectTrigger>
+          <SelectContent>{periods.map((p) => <SelectItem key={p} value={p}>{formatPeriodLabel(p)}</SelectItem>)}</SelectContent>
         </Select>
         <Button size="sm" variant="outline" onClick={() => rollover.mutate()} disabled={rollover.isPending}>
           {rollover.isPending ? "Rolling..." : "🔄 Roll Over"}

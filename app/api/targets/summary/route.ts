@@ -4,7 +4,7 @@ import { authOptions } from "@/lib/auth"
 import { getSheetValues } from "@/lib/sheets"
 import { parseTarget } from "@/lib/sheets-helpers"
 import { SHEET_ID, ENQUIRY_SHEET_ID, SHEETS, COLS } from "@/constants"
-import { parsePeriod, parseFlexDate } from "@/lib/utils"
+import { parsePeriod, parseFlexDate, getISOWeek } from "@/lib/utils"
 import type { Target } from "@/types/target"
 
 function getWeeksInMonth(monthStr: string): string[] {
@@ -15,8 +15,15 @@ function getWeeksInMonth(monthStr: string): string[] {
   if (moIdx === -1) return []
   const yr = +m[2]
   const daysInMonth = new Date(yr, moIdx + 1, 0).getDate()
-  const numWeeks = Math.ceil(daysInMonth / 7)
-  return Array.from({ length: numWeeks }, (_, i) => `${m[1]} ${yr} W${i + 1}`)
+  const result: string[] = []
+  for (let day = 1; day <= daysInMonth; day++) {
+    const d = new Date(yr, moIdx, day)
+    if (d.getDay() === 1) { // Monday — start of ISO week
+      const { year, week } = getISOWeek(d)
+      result.push(`${year} W${String(week).padStart(2, "0")}`)
+    }
+  }
+  return result
 }
 
 function applyCarryForward(allTargets: Target[], period: string): Target[] {

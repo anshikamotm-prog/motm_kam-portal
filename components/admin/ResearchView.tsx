@@ -1,7 +1,7 @@
 "use client"
 import { useState } from "react"
 import { useQuery } from "@tanstack/react-query"
-import { getCurrentPeriod } from "@/lib/utils"
+import { formatPeriodLabel } from "@/lib/utils"
 import { EMAIL_RESPONSE_TYPES } from "@/constants"
 
 interface EmailResponse {
@@ -86,7 +86,7 @@ export default function ResearchView() {
           className="text-sm border border-slate-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
         >
           <option value="">All Weeks</option>
-          {allPeriods.map((p) => <option key={p} value={p}>{p}</option>)}
+          {allPeriods.map((p) => <option key={p} value={p}>{formatPeriodLabel(p)}</option>)}
         </select>
         <select
           value={filterKam}

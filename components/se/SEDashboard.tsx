@@ -4,7 +4,7 @@ import { useSession } from "next-auth/react"
 import { useTargets } from "@/hooks/useTargets"
 import { useClients } from "@/hooks/useClients"
 import { useQuery } from "@tanstack/react-query"
-import { getCurrentPeriod } from "@/lib/utils"
+import { getCurrentPeriod, formatPeriodLabel } from "@/lib/utils"
 import { PageSpinner } from "@/components/shared/Spinner"
 import { Badge } from "@/components/ui/badge"
 import type { Task } from "@/types/task"
@@ -65,7 +65,7 @@ export default function SEDashboard() {
     <div className="space-y-5">
       <div>
         <h1 className="text-2xl font-bold text-[#1e3a5f]">My Dashboard</h1>
-        <p className="text-sm text-slate-500 mt-0.5">{seName} · {period}</p>
+        <p className="text-sm text-slate-500 mt-0.5">{seName} · {formatPeriodLabel(period)}</p>
       </div>
 
       {/* Stats */}
@@ -80,7 +80,7 @@ export default function SEDashboard() {
       {clientTargets.length > 0 && (
         <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
           <div className="px-4 py-2.5 bg-slate-50 border-b border-slate-200 text-sm font-semibold text-slate-700">
-            My Targets — {period}
+            My Targets — {formatPeriodLabel(period)}
           </div>
           <table className="w-full text-sm">
             <thead>

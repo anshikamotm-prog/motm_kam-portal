@@ -8,7 +8,7 @@ import {
 } from "lucide-react"
 import type { Client } from "@/types/client"
 import type { Target } from "@/types/target"
-import { getCurrentPeriod } from "@/lib/utils"
+import { getCurrentPeriod, getISOWeek, formatPeriodLabel } from "@/lib/utils"
 import { EMAIL_RESPONSE_TYPES } from "@/constants"
 
 interface EmailResponseForm {
@@ -114,14 +114,15 @@ export default function DRDashboard() {
     await updateAchieved.mutateAsync({ rowNum: editAchieved.rowNum, achieved: val })
   }
 
-  // Week navigation
+  // Week navigation — 3 past weeks + current + 1 next
   const weeks = useMemo(() => {
     const now = new Date()
-    const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
     const result: string[] = []
     for (let offset = 3; offset >= -1; offset--) {
-      const d = new Date(now.getFullYear(), now.getMonth(), now.getDate() - offset * 7)
-      result.push(`${months[d.getMonth()]} ${d.getFullYear()} W${Math.ceil(d.getDate() / 7)}`)
+      const d = new Date(now)
+      d.setDate(now.getDate() - offset * 7)
+      const { year, week } = getISOWeek(d)
+      result.push(`${year} W${String(week).padStart(2, "0")}`)
     }
     return [...new Set(result)]
   }, [])
@@ -142,7 +143,7 @@ export default function DRDashboard() {
             className="text-sm border border-slate-300 rounded-lg px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-500"
           >
             {weeks.map((w) => (
-              <option key={w} value={w}>{w}</option>
+              <option key={w} value={w}>{formatPeriodLabel(w)}</option>
             ))}
           </select>
         </div>
@@ -173,7 +174,7 @@ export default function DRDashboard() {
       <div className="bg-white border border-slate-200 rounded-xl overflow-hidden">
         <div className="px-5 py-4 border-b border-slate-100">
           <h2 className="text-sm font-semibold text-slate-700">
-            Client Targets — {period}
+            Client Targets — {formatPeriodLabel(period)}
           </h2>
         </div>
         <div className="overflow-x-auto">

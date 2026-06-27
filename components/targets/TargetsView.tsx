@@ -8,7 +8,7 @@ import { Badge } from "@/components/ui/badge"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { ComplianceBar } from "@/components/shared/ComplianceBar"
 import { PageSpinner } from "@/components/shared/Spinner"
-import { getCurrentPeriod } from "@/lib/utils"
+import { getCurrentPeriod, formatPeriodLabel, isoWeekToMonth } from "@/lib/utils"
 
 type GroupBy = "client" | "se"
 type ViewMode = "targets" | "history"
@@ -46,11 +46,8 @@ export default function TargetsView() {
     [targets, effectivePeriod],
   )
 
-  // Month period derived from selected week (e.g. "Jun 2026 W4" → "Jun 2026")
-  const monthPeriod = useMemo(() => {
-    const m = effectivePeriod.match(/^([A-Za-z]{3}\s+\d{4})/)
-    return m ? m[1] : ""
-  }, [effectivePeriod])
+  // Month derived from selected ISO week (e.g. "2026 W26" → "Jun 2026")
+  const monthPeriod = useMemo(() => isoWeekToMonth(effectivePeriod), [effectivePeriod])
 
   // Monthly summary comes from API; weekly is computed locally from filtered targets
   const { data: monthlySummary } = useTargetsSummary(summaryMode === "month" ? monthPeriod : "")
@@ -106,14 +103,13 @@ export default function TargetsView() {
     return map
   }, [filtered])
 
-  // History — aggregate all targets by month
+  // History — aggregate all targets by calendar month (derived from ISO week Monday)
   const historyData = useMemo(() => {
     if (!targets) return []
     const monthMap: Record<string, { target: number; achieved: number }> = {}
     targets.forEach((t) => {
-      const m = t.period.match(/^([A-Za-z]{3}\s+\d{4})/)
-      if (!m) return
-      const month = m[1]
+      const month = isoWeekToMonth(t.period)
+      if (!month) return
       if (!monthMap[month]) monthMap[month] = { target: 0, achieved: 0 }
       monthMap[month].target += parseInt(t.target) || 0
       monthMap[month].achieved += t.type === "Enquiries"
@@ -170,7 +166,7 @@ export default function TargetsView() {
               <Select value={effectivePeriod} onValueChange={setPeriod}>
                 <SelectTrigger className="w-44"><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  {periods.map((p) => <SelectItem key={p} value={p}>{p}</SelectItem>)}
+                  {periods.map((p) => <SelectItem key={p} value={p}>{formatPeriodLabel(p)}</SelectItem>)}
                 </SelectContent>
               </Select>
             </>

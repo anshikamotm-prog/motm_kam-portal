@@ -32,31 +32,57 @@ export function daysSince(date: string | null | undefined): number | null {
   return Math.floor((Date.now() - d.getTime()) / 86_400_000)
 }
 
+// ── ISO week helpers ────────────────────────────────────────────────────────
+// ISO week 1 of year Y = the week containing the first Thursday of Y (Jan 4 is always in W01).
+// All weeks run Mon–Sun.
+
+export function getISOWeek(date: Date): { year: number; week: number } {
+  const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()))
+  const dayNum = d.getUTCDay() || 7 // Mon=1 … Sun=7
+  d.setUTCDate(d.getUTCDate() + 4 - dayNum) // shift to Thursday of same week
+  const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1))
+  const week = Math.ceil(((d.getTime() - yearStart.getTime()) / 86400000 + 1) / 7)
+  return { year: d.getUTCFullYear(), week }
+}
+
+function getISOWeekMonday(year: number, week: number): Date {
+  const jan4 = new Date(year, 0, 4)
+  const dow = jan4.getDay() || 7
+  const w1Mon = new Date(year, 0, 4 - (dow - 1))
+  return new Date(w1Mon.getFullYear(), w1Mon.getMonth(), w1Mon.getDate() + (week - 1) * 7)
+}
+
+/** Period format: "2026 W26" */
 export function parsePeriod(period: string): { start: Date; end: Date } | null {
-  const m = period.match(/^([A-Za-z]{3})\s+(\d{4})\s+W(\d+)$/i)
+  const m = period.match(/^(\d{4})\s+W(\d{1,2})$/)
   if (!m) return null
-  const months: Record<string, number> = {
-    jan: 0, feb: 1, mar: 2, apr: 3, may: 4, jun: 5,
-    jul: 6, aug: 7, sep: 8, oct: 9, nov: 10, dec: 11,
-  }
-  const mo = months[m[1].toLowerCase()]
-  if (mo === undefined) return null
-  const yr = +m[2]
-  const wk = +m[3]
-  const d1 = (wk - 1) * 7 + 1
-  const dMax = new Date(yr, mo + 1, 0).getDate()
-  if (d1 > dMax) return null
-  const d2 = Math.min(wk * 7, dMax)
-  return {
-    start: new Date(yr, mo, d1, 0, 0, 0),
-    end: new Date(yr, mo, d2, 23, 59, 59),
-  }
+  const monday = getISOWeekMonday(+m[1], +m[2])
+  const sunday = new Date(monday)
+  sunday.setDate(monday.getDate() + 6)
+  sunday.setHours(23, 59, 59)
+  return { start: monday, end: sunday }
 }
 
 export function getCurrentPeriod(): string {
-  const now = new Date()
-  const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
-  return `${months[now.getMonth()]} ${now.getFullYear()} W${Math.ceil(now.getDate() / 7)}`
+  const { year, week } = getISOWeek(new Date())
+  return `${year} W${String(week).padStart(2, "0")}`
+}
+
+/** "2026 W26" → "2026 W26  (22 Jun – 28 Jun)" */
+export function formatPeriodLabel(period: string): string {
+  const range = parsePeriod(period)
+  if (!range) return period
+  const MO = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"]
+  const fmt = (d: Date) => `${d.getDate()} ${MO[d.getMonth()]}`
+  return `${period}  (${fmt(range.start)} – ${fmt(range.end)})`
+}
+
+/** "2026 W26" → "Jun 2026" (month of the Monday) */
+export function isoWeekToMonth(period: string): string {
+  const range = parsePeriod(period)
+  if (!range) return ""
+  const MO = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"]
+  return `${MO[range.start.getMonth()]} ${range.start.getFullYear()}`
 }
 
 export function calcBANTScore(

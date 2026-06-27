@@ -6,7 +6,7 @@ import { ComplianceBar } from "@/components/shared/ComplianceBar"
 import { Badge } from "@/components/ui/badge"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { PageSpinner } from "@/components/shared/Spinner"
-import { getCurrentPeriod } from "@/lib/utils"
+import { getCurrentPeriod, formatPeriodLabel, isoWeekToMonth } from "@/lib/utils"
 
 type Mode = "week" | "month"
 
@@ -28,12 +28,12 @@ export default function EnquiryPerformanceView() {
     return fromData.includes(current) ? fromData : [current, ...fromData]
   }, [targets])
 
-  // Available months derived from week periods
+  // Available months derived from ISO week periods
   const monthPeriods = useMemo(() => {
     const seen = new Set<string>()
     weekPeriods.forEach((p) => {
-      const m = p.match(/^([A-Za-z]{3}\s+\d{4})/)
-      if (m) seen.add(m[1])
+      const month = isoWeekToMonth(p)
+      if (month) seen.add(month)
     })
     return [...seen].sort().reverse()
   }, [weekPeriods])
@@ -66,7 +66,7 @@ export default function EnquiryPerformanceView() {
           <Select value={weekPeriod} onValueChange={setWeekPeriod}>
             <SelectTrigger className="w-48"><SelectValue /></SelectTrigger>
             <SelectContent>
-              {weekPeriods.map((p) => <SelectItem key={p} value={p}>{p}</SelectItem>)}
+              {weekPeriods.map((p) => <SelectItem key={p} value={p}>{formatPeriodLabel(p)}</SelectItem>)}
             </SelectContent>
           </Select>
         ) : (
