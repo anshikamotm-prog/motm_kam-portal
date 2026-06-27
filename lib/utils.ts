@@ -115,5 +115,9 @@ export function toISODate(d: Date): string {
 }
 
 export function nowIST(): string {
-  return new Date().toLocaleString("en-IN", { timeZone: "Asia/Kolkata" })
+  // Produce "DD/MM/YYYY HH:MM:SS" in IST — consistent with enquiry sheet timestamp format,
+  // 24h, no comma, no am/pm ambiguity, fully parseable by parseFlexDate.
+  const ist = new Date(new Date().toLocaleString("en-US", { timeZone: "Asia/Kolkata" }))
+  const p = (n: number) => String(n).padStart(2, "0")
+  return `${p(ist.getDate())}/${p(ist.getMonth() + 1)}/${ist.getFullYear()} ${p(ist.getHours())}:${p(ist.getMinutes())}:${p(ist.getSeconds())}`
 }
