@@ -145,7 +145,7 @@ export default function SEDashboard() {
                   </a>
                 )}
                 {c.dashboardId && (
-                  <a href={`https://docs.google.com/spreadsheets/d/${c.dashboardId}`} target="_blank" rel="noopener noreferrer"
+                  <a href={c.dashboardId} target="_blank" rel="noopener noreferrer"
                     className="text-xs text-[#0369a1] hover:underline flex items-center gap-1">
                     <Star className="h-3 w-3" /> Dashboard
                   </a>
