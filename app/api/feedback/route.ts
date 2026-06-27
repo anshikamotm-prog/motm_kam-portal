@@ -1,10 +1,10 @@
 import { NextRequest, NextResponse } from "next/server"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
-import { getSheetValues, appendRow, batchUpdate } from "@/lib/sheets"
+import { getSheetValues, appendRow, batchUpdate, colToLetter } from "@/lib/sheets"
 import { parseFeedback } from "@/lib/sheets-helpers"
 import { SHEET_ID, SHEETS, COLS } from "@/constants"
-import { esc, nowIST } from "@/lib/utils"
+import { esc, nowIST, parseFlexDate } from "@/lib/utils"
 
 export async function GET() {
   const session = await getServerSession(authOptions)
@@ -21,10 +21,14 @@ export async function GET() {
     const filtered = data
       .filter((f) => {
         if (session.user.role !== "Admin" && f.kam !== session.user.kamName) return false
-        const d = new Date(f.date)
-        return !isNaN(d.getTime()) && d >= cutoff
+        const d = parseFlexDate(f.date) // H-2: handle DD/MM/YYYY dates from Google Forms
+        return d !== null && d >= cutoff
       })
-      .sort((a, b) => b.date.localeCompare(a.date))
+      .sort((a, b) => {
+        const da = parseFlexDate(a.date)?.getTime() ?? 0
+        const db = parseFlexDate(b.date)?.getTime() ?? 0
+        return db - da
+      })
 
     return NextResponse.json(filtered)
   } catch (err) {
@@ -70,12 +74,14 @@ export async function POST(req: NextRequest) {
       const cidx = clientRows.slice(1).findIndex((r) => r[COLS.CLIENT.ID] === clientId)
       if (cidx !== -1) {
         const rowNum = cidx + 2
+        // M-3: use colToLetter so column refs stay correct if Client Master schema changes
+        const c = COLS.CLIENT
         const updates: Array<{ range: string; values: unknown[][] }> = [
-          { range: `${SHEETS.CLIENT_MASTER}!O${rowNum}`, values: [[esc(date)]] },
+          { range: `${SHEETS.CLIENT_MASTER}!${colToLetter(c.LAST_FEEDBACK_DATE + 1)}${rowNum}`, values: [[esc(date)]] },
         ]
-        if (feedbackStatus) updates.push({ range: `${SHEETS.CLIENT_MASTER}!M${rowNum}`, values: [[esc(feedbackStatus)]] })
-        if (healthUpdate) updates.push({ range: `${SHEETS.CLIENT_MASTER}!L${rowNum}`, values: [[esc(healthUpdate)]] })
-        if (nextFollowupDate) updates.push({ range: `${SHEETS.CLIENT_MASTER}!Q${rowNum}`, values: [[esc(nextFollowupDate)]] })
+        if (feedbackStatus) updates.push({ range: `${SHEETS.CLIENT_MASTER}!${colToLetter(c.FEEDBACK_STATUS + 1)}${rowNum}`, values: [[esc(feedbackStatus)]] })
+        if (healthUpdate) updates.push({ range: `${SHEETS.CLIENT_MASTER}!${colToLetter(c.HEALTH + 1)}${rowNum}`, values: [[esc(healthUpdate)]] })
+        if (nextFollowupDate) updates.push({ range: `${SHEETS.CLIENT_MASTER}!${colToLetter(c.NEXT_FOLLOWUP + 1)}${rowNum}`, values: [[esc(nextFollowupDate)]] })
         await batchUpdate(SHEET_ID, updates)
       }
     } catch (clientErr) {

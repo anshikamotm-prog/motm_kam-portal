@@ -22,8 +22,11 @@ export async function POST(req: NextRequest) {
       .map((r) => `${r[COLS.TARGET.CLIENT_ID]}|${r[COLS.TARGET.TYPE] ?? ""}|${r[COLS.TARGET.SE_NAME] ?? ""}`)
   )
 
-  // Find the most recently added distinct period that isn't current
-  const periods = [...new Set(data.map((r) => r[COLS.TARGET.PERIOD]))].filter((p) => p !== currentPeriod)
+  // Find the most recent distinct period that isn't current.
+  // H-1: sort so the last element is chronologically the latest ("YYYY WNN" sorts correctly).
+  const periods = [...new Set(data.map((r) => r[COLS.TARGET.PERIOD]))]
+    .filter((p) => p !== currentPeriod)
+    .sort()
   if (periods.length === 0) return NextResponse.json({ rolled: 0 })
 
   const lastPeriod = periods[periods.length - 1]

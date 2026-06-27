@@ -4,7 +4,7 @@ import { authOptions } from "@/lib/auth"
 import { getSheetValues, appendRow, batchUpdate } from "@/lib/sheets"
 import { parseMeeting } from "@/lib/sheets-helpers"
 import { SHEET_ID, SHEETS, COLS } from "@/constants"
-import { esc, nowIST } from "@/lib/utils"
+import { esc, nowIST, parseFlexDate } from "@/lib/utils"
 import { markMissedMeetings } from "@/lib/notifications"
 
 export async function GET(req: NextRequest) {
@@ -33,10 +33,21 @@ export async function GET(req: NextRequest) {
   }
 
   if (filterStatus) data = data.filter((m) => m.status === filterStatus)
-  if (dateFrom) data = data.filter((m) => m.date >= dateFrom)
-  if (dateTo) data = data.filter((m) => m.date <= dateTo)
+  // H-7: use parseFlexDate so DD/MM/YYYY meeting dates filter and sort correctly
+  if (dateFrom) {
+    const from = parseFlexDate(dateFrom)
+    if (from) data = data.filter((m) => { const d = parseFlexDate(m.date); return d !== null && d >= from })
+  }
+  if (dateTo) {
+    const to = parseFlexDate(dateTo)
+    if (to) data = data.filter((m) => { const d = parseFlexDate(m.date); return d !== null && d <= to })
+  }
 
-  data.sort((a, b) => b.date.localeCompare(a.date))
+  data.sort((a, b) => {
+    const da = parseFlexDate(a.date)?.getTime() ?? 0
+    const db = parseFlexDate(b.date)?.getTime() ?? 0
+    return db - da
+  })
 
   return NextResponse.json(data)
 }

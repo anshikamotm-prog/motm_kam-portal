@@ -15,7 +15,8 @@ export async function POST(
 
   const { id } = await params
   const rowNum = parseInt(id, 10)
-  if (isNaN(rowNum)) return NextResponse.json({ error: "Invalid row" }, { status: 400 })
+  // M-6: rowNum < 2 would target the header row
+  if (isNaN(rowNum) || rowNum < 2) return NextResponse.json({ error: "Invalid row" }, { status: 400 })
 
   const body = await req.json()
   const { reaction, reactionNote } = body
@@ -24,6 +25,7 @@ export async function POST(
 
   // Verify KAM can only react to their own notes
   const rows = await getSheetValues(SHEET_ID, SHEETS.ADMIN_NOTES)
+  if (rowNum > rows.length) return NextResponse.json({ error: "Not found" }, { status: 404 })
   const row = rows[rowNum - 1]
   if (!row) return NextResponse.json({ error: "Not found" }, { status: 404 })
   if (session.user.role !== "Admin" && row[COLS.ADMIN_NOTE.KAM_ASSIGNED] !== session.user.kamName) {

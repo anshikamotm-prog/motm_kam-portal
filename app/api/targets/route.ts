@@ -52,7 +52,10 @@ export async function GET(req: NextRequest) {
       const latest: Record<string, (typeof data)[0]> = {}
       data.filter((t) => t.type === type).forEach((t) => {
         const key = `${t.clientId}|${t.seName ?? ""}`
-        if (!latest[key] || t.rowNum > latest[key].rowNum) latest[key] = t
+        // L-5: compare by period date, not rowNum — rows may not be inserted chronologically
+        const tTime = parsePeriod(t.period)?.start.getTime() ?? 0
+        const curTime = latest[key] ? (parsePeriod(latest[key].period)?.start.getTime() ?? 0) : -1
+        if (!latest[key] || tTime > curTime) latest[key] = t
       })
       return Object.values(latest)
         .filter((t) => !hasPeriod.has(`${t.clientId}|${t.seName ?? ""}`))
@@ -67,7 +70,7 @@ export async function GET(req: NextRequest) {
       ...periodData,
       ...carryForward("Enquiries"),
       ...carryForward("Data Collection", true),
-      ...carryForward("Email Response"),
+      ...carryForward("Email Response", true), // L-4: reset achieved — auto-calculated from logged responses
     ]
   }
 

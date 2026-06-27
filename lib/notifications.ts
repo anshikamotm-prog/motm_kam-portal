@@ -3,7 +3,7 @@ import type { Meeting } from "@/types/meeting"
 import type { Task } from "@/types/task"
 import { getSheetValues, appendRow } from "@/lib/sheets"
 import { SHEET_ID, SHEETS, COLS } from "@/constants"
-import { nowIST, daysSince } from "@/lib/utils"
+import { nowIST, daysSince, parseFlexDate, esc } from "@/lib/utils"
 
 export async function logNotification(params: {
   type: string
@@ -21,7 +21,8 @@ export async function logNotification(params: {
   const exists = rows.slice(1).some((r) => {
     if (r[COLS.NOTIFICATION.TYPE] !== params.type) return false
     if (r[COLS.NOTIFICATION.CLIENT_ID] !== params.clientId) return false
-    const ts = new Date(r[COLS.NOTIFICATION.TIMESTAMP]).getTime()
+    // nowIST() returns "DD/MM/YYYY, HH:MM:SS" — parseFlexDate handles the date part (H-3)
+    const ts = parseFlexDate(r[COLS.NOTIFICATION.TIMESTAMP])?.getTime() ?? NaN
     return !isNaN(ts) && ts > cutoff
   })
   if (exists) return
@@ -30,10 +31,10 @@ export async function logNotification(params: {
     nowIST(),
     params.type,
     params.severity,
-    params.clientId,
-    params.company,
-    params.kam,
-    params.message,
+    esc(params.clientId),
+    esc(params.company),
+    esc(params.kam),
+    esc(params.message), // L-6: esc prevents formula injection from sheet-derived values
     params.emailSent ?? "No",
     params.emailTo ?? "",
     "No",
@@ -43,10 +44,14 @@ export async function logNotification(params: {
 }
 
 export async function markMissedMeetings(meetings: Meeting[]): Promise<Meeting[]> {
-  const today = new Date().toISOString().split("T")[0]
-  const toMiss = meetings.filter(
-    (m) => m.status === "Scheduled" && m.date && m.date < today,
-  )
+  const today = new Date()
+  today.setHours(0, 0, 0, 0)
+  // H-4: use parseFlexDate so DD/MM/YYYY meeting dates compare correctly
+  const toMiss = meetings.filter((m) => {
+    if (m.status !== "Scheduled" || !m.date) return false
+    const d = parseFlexDate(m.date)
+    return d !== null && d < today
+  })
   if (toMiss.length === 0) return meetings
 
   const { updateCell } = await import("@/lib/sheets")
@@ -81,13 +86,13 @@ export function checkFeedbackOverdue(clients: Client[]): {
 }
 
 export function checkOverdueTasks(tasks: Task[]): Task[] {
-  const today = new Date().toISOString().split("T")[0]
-  return tasks.filter(
-    (t) =>
-      t.status !== "Done" &&
-      t.status !== "Completed" &&
-      t.status !== "Cancelled" &&
-      t.dueDate &&
-      t.dueDate < today,
-  )
+  const today = new Date()
+  today.setHours(0, 0, 0, 0)
+  // H-5: use parseFlexDate so DD/MM/YYYY due dates compare correctly
+  return tasks.filter((t) => {
+    if (["Done", "Completed", "Cancelled"].includes(t.status)) return false
+    if (!t.dueDate) return false
+    const d = parseFlexDate(t.dueDate)
+    return d !== null && d < today
+  })
 }

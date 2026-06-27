@@ -4,7 +4,7 @@ import { authOptions } from "@/lib/auth"
 import { getSheetValues, appendRow } from "@/lib/sheets"
 import { parseTask } from "@/lib/sheets-helpers"
 import { SHEET_ID, SHEETS, COLS } from "@/constants"
-import { esc, nowIST } from "@/lib/utils"
+import { esc, nowIST, parseFlexDate } from "@/lib/utils"
 
 export async function GET(req: NextRequest) {
   const session = await getServerSession(authOptions)
@@ -68,8 +68,11 @@ export async function POST(req: NextRequest) {
 
   const kam = session.user.role === "Admin" ? (body.kam ?? session.user.kamName) : session.user.kamName
   const taskId = `TSK-${Date.now()}`
-  const today = new Date().toISOString().split("T")[0]
-  const overdue = dueDate < today ? "YES" : "No"
+  // M-4: use parseFlexDate so DD/MM/YYYY due dates compare correctly
+  const now = new Date()
+  now.setHours(0, 0, 0, 0)
+  const dueDateParsed = parseFlexDate(dueDate)
+  const overdue = dueDateParsed !== null && dueDateParsed < now ? "YES" : "No"
 
   await appendRow(SHEET_ID, SHEETS.TASK_TRACKER, [
     taskId, esc(clientId ?? ""), esc(company ?? ""), esc(kam),

@@ -2,7 +2,8 @@ export const SHEET_ID = process.env.SHEET_ID!
 export const ENQUIRY_SHEET_ID = process.env.ENQUIRY_SHEET_ID!
 
 
-export const GCHAT_WEBHOOK_URL = process.env.GCHAT_WEBHOOK_URL
+// Do NOT export GCHAT_WEBHOOK_URL here — it would risk inclusion in client bundles.
+// Read process.env.GCHAT_WEBHOOK_URL directly in server-only files that need it.
 
 export const STATUS_OPTIONS = [
   "New", "Pending", "E. Started", "C. Started", "Closed",

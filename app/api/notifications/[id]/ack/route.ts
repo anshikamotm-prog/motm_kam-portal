@@ -15,11 +15,14 @@ export async function POST(
 
   const { id } = await params
   const rowNum = parseInt(id, 10)
-  if (isNaN(rowNum)) return NextResponse.json({ error: "Invalid" }, { status: 400 })
+  // M-1: rowNum < 2 would target the header row
+  if (isNaN(rowNum) || rowNum < 2) return NextResponse.json({ error: "Invalid" }, { status: 400 })
+
+  const rows = await getSheetValues(SHEET_ID, SHEETS.NOTIFICATION_LOG)
+  if (rowNum > rows.length) return NextResponse.json({ error: "Not found" }, { status: 404 })
 
   // KAMs can only ack their own notifications
   if (session.user.role !== "Admin") {
-    const rows = await getSheetValues(SHEET_ID, SHEETS.NOTIFICATION_LOG)
     const row = rows[rowNum - 1]
     if (!row) return NextResponse.json({ error: "Not found" }, { status: 404 })
     if (row[COLS.NOTIFICATION.KAM] !== session.user.kamName) {

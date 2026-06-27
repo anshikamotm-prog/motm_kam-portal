@@ -39,23 +39,26 @@ export const authOptions: NextAuthOptions = {
           )
           if (match) {
             if (match[COLS.USER.ACTIVE]?.toLowerCase() !== "yes") {
-              // Deactivated mid-session — strip privileges and keep sheetLoaded=false
-              // so the check re-runs on every subsequent request until they log out.
+              // Deactivated mid-session — strip privileges, flag token so proxy blocks all requests.
+              // Keep sheetLoaded=false so the check re-runs until they log out.
               token.role = "KAM"
               token.kamName = ""
               token.fullName = ""
+              token.deactivated = true
             } else {
               token.role = (match[COLS.USER.ROLE] ?? "KAM") as "Admin" | "KAM" | "SE"
               token.kamName = match[COLS.USER.KAM_NAME] ?? ""
               token.fullName = match[COLS.USER.FULL_NAME] ?? ""
+              token.deactivated = false
               token.sheetLoaded = true
             }
             token.email = email
           } else {
-            // User removed from sheet — strip all privileges and mark loaded
+            // User removed from sheet — block immediately
             token.role = "KAM"
             token.kamName = ""
             token.fullName = ""
+            token.deactivated = true
             token.sheetLoaded = true
           }
         } catch {

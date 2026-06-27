@@ -20,6 +20,16 @@ export async function PATCH(
   const { status, note } = body
 
   try {
+    // H-6: KAMs may only update enquiry tracker entries for their own clients
+    if (session.user.role === "KAM") {
+      const clientCode = key.split("-")[0]
+      const clientRows = await getSheetValues(SHEET_ID, SHEETS.CLIENT_MASTER)
+      const clientRow = clientRows.slice(1).find((r) => r[COLS.CLIENT.ID] === clientCode)
+      if (!clientRow || clientRow[COLS.CLIENT.KAM] !== session.user.kamName) {
+        return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+      }
+    }
+
     const rows = await getSheetValues(SHEET_ID, SHEETS.ENQUIRY_TRACKER)
     const idx = rows.slice(1).findIndex((r) => r[COLS.ENQUIRY_TRACKER.KEY] === key)
 
