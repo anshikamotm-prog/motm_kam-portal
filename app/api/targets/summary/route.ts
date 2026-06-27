@@ -26,21 +26,36 @@ function getWeeksInMonth(monthStr: string): string[] {
   return result
 }
 
-function applyCarryForward(allTargets: Target[], period: string): Target[] {
-  const periodData = allTargets.filter((t) => t.period === period)
-  const allEnquiry = allTargets.filter((t) => t.type === "Enquiries")
-  const hasEnqThisPeriod = new Set(
-    periodData.filter((t) => t.type === "Enquiries").map((t) => `${t.clientId}|${t.seName ?? ""}`)
+// M-1: select latest by period date (not rowNum) in case rows were inserted out of order
+// M-2: carry forward all three types consistently with main targets route
+function carryOneType(allTargets: Target[], periodData: Target[], period: string, type: string, resetAchieved = false): Target[] {
+  const hasThisPeriod = new Set(
+    periodData.filter((t) => t.type === type).map((t) => `${t.clientId}|${t.seName ?? ""}`)
   )
   const latestByKey: Record<string, Target> = {}
-  allEnquiry.forEach((t) => {
+  allTargets.filter((t) => t.type === type).forEach((t) => {
     const key = `${t.clientId}|${t.seName ?? ""}`
-    if (!latestByKey[key] || t.rowNum > latestByKey[key].rowNum) latestByKey[key] = t
+    const tTime = parsePeriod(t.period)?.start.getTime() ?? 0
+    const curTime = latestByKey[key] ? (parsePeriod(latestByKey[key].period)?.start.getTime() ?? 0) : -1
+    if (!latestByKey[key] || tTime > curTime) latestByKey[key] = t
   })
-  const inherited = Object.values(latestByKey)
-    .filter((t) => !hasEnqThisPeriod.has(`${t.clientId}|${t.seName ?? ""}`))
-    .map((t) => ({ ...t, period }))
-  return [...periodData, ...inherited]
+  return Object.values(latestByKey)
+    .filter((t) => !hasThisPeriod.has(`${t.clientId}|${t.seName ?? ""}`))
+    .map((t) => ({
+      ...t,
+      period,
+      ...(resetAchieved ? { achieved: "0", achievementPct: "0%", status: "Open" } : {}),
+    }))
+}
+
+function applyCarryForward(allTargets: Target[], period: string): Target[] {
+  const periodData = allTargets.filter((t) => t.period === period)
+  return [
+    ...periodData,
+    ...carryOneType(allTargets, periodData, period, "Enquiries"),
+    ...carryOneType(allTargets, periodData, period, "Data Collection", true),
+    ...carryOneType(allTargets, periodData, period, "Email Response", true),
+  ]
 }
 
 export async function GET(req: NextRequest) {

@@ -2,13 +2,16 @@ import { NextRequest, NextResponse } from "next/server"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 import { getSheetValues, appendRow } from "@/lib/sheets"
-import { SHEET_ID, SHEETS, COLS } from "@/constants"
-import { esc, nowIST, getCurrentPeriod } from "@/lib/utils"
+import { SHEET_ID, SHEETS, COLS, EMAIL_RESPONSE_TYPES } from "@/constants"
+import { esc, nowIST, getCurrentPeriod, parseFlexDate } from "@/lib/utils"
 
 export async function GET(req: NextRequest) {
   const session = await getServerSession(authOptions)
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-  if (session.user.role !== "Admin") return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+  // L-3: DR can read their own logged responses
+  if (session.user.role !== "Admin" && session.user.role !== "DR") {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+  }
 
   const { searchParams } = req.nextUrl
   const filterKam = searchParams.get("kam")
@@ -36,13 +39,18 @@ export async function GET(req: NextRequest) {
     notes: r[COLS.EMAIL_RESPONSE.NOTES] ?? "",
   }))
 
+  // DR sees only their own responses
+  if (session.user.role === "DR") {
+    data = data.filter((r) => r.drName === session.user.fullName)
+  }
+
   if (filterKam) data = data.filter((r) => r.kam === filterKam)
   if (filterDR) data = data.filter((r) => r.drName === filterDR)
   if (filterClient) data = data.filter((r) => r.clientId === filterClient)
   if (filterPeriod) data = data.filter((r) => r.period === filterPeriod)
   if (filterType) data = data.filter((r) => r.responseType === filterType)
 
-  data.sort((a, b) => b.timestamp.localeCompare(a.timestamp))
+  data.sort((a, b) => (parseFlexDate(b.timestamp)?.getTime() ?? 0) - (parseFlexDate(a.timestamp)?.getTime() ?? 0))
   return NextResponse.json(data)
 }
 
@@ -63,6 +71,10 @@ export async function POST(req: NextRequest) {
       { error: "clientId, contactPerson, responseType, and responseSummary are required" },
       { status: 400 },
     )
+  }
+  // L-2: validate responseType against allowed values
+  if (!(EMAIL_RESPONSE_TYPES as readonly string[]).includes(responseType)) {
+    return NextResponse.json({ error: `responseType must be one of: ${EMAIL_RESPONSE_TYPES.join(", ")}` }, { status: 400 })
   }
 
   // Verify the client belongs to this DR's KAM team

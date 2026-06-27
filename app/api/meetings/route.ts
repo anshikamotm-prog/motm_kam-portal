@@ -3,7 +3,7 @@ import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 import { getSheetValues, appendRow, batchUpdate } from "@/lib/sheets"
 import { parseMeeting } from "@/lib/sheets-helpers"
-import { SHEET_ID, SHEETS, COLS } from "@/constants"
+import { SHEET_ID, SHEETS, COLS, MEETING_TYPES } from "@/constants"
 import { esc, nowIST, parseFlexDate } from "@/lib/utils"
 import { markMissedMeetings } from "@/lib/notifications"
 
@@ -59,6 +59,11 @@ export async function POST(req: NextRequest) {
 
   const body = await req.json()
   const { title, clientId, company, meetingType, date, time, participants, notes } = body
+
+  // L-2: validate meetingType against allowed values
+  if (meetingType && !(MEETING_TYPES as readonly string[]).includes(meetingType)) {
+    return NextResponse.json({ error: `meetingType must be one of: ${MEETING_TYPES.join(", ")}` }, { status: 400 })
+  }
 
   if (!title || !date) {
     return NextResponse.json({ error: "title and date are required" }, { status: 400 })

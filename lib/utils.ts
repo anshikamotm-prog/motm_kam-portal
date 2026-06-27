@@ -8,7 +8,8 @@ export function cn(...inputs: ClassValue[]) {
 /** Parse DD/MM/YYYY or DD/MM/YYYY HH:MM:SS (Google Forms format) as well as ISO dates */
 export function parseFlexDate(str: string | null | undefined): Date | null {
   if (!str) return null
-  const ddmm = str.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})(?:[T\s](\d{1,2}):(\d{2})(?::(\d{2}))?)?/)
+  // Handles DD/MM/YYYY, DD/MM/YYYY HH:MM:SS, and en-IN locale "D/M/YYYY, HH:MM:SS [am/pm]" (H-1)
+  const ddmm = str.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})(?:[T\s,]+(\d{1,2}):(\d{2})(?::(\d{2}))?(?:\s*[aApP][mM])?)?/)
   if (ddmm) {
     const [, dd, mm, yyyy, hh = "0", min = "0", sec = "0"] = ddmm
     const d = new Date(+yyyy, +mm - 1, +dd, +hh, +min, +sec)

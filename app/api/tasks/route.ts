@@ -3,7 +3,7 @@ import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 import { getSheetValues, appendRow } from "@/lib/sheets"
 import { parseTask } from "@/lib/sheets-helpers"
-import { SHEET_ID, SHEETS, COLS } from "@/constants"
+import { SHEET_ID, SHEETS, COLS, PRIORITY_OPTIONS } from "@/constants"
 import { esc, nowIST, parseFlexDate } from "@/lib/utils"
 
 export async function GET(req: NextRequest) {
@@ -64,6 +64,10 @@ export async function POST(req: NextRequest) {
 
   if (!title || !priority || !dueDate) {
     return NextResponse.json({ error: "title, priority, dueDate are required" }, { status: 400 })
+  }
+  // L-2: validate priority against allowed values
+  if (!(PRIORITY_OPTIONS as readonly string[]).includes(priority)) {
+    return NextResponse.json({ error: `priority must be one of: ${PRIORITY_OPTIONS.join(", ")}` }, { status: 400 })
   }
 
   const kam = session.user.role === "Admin" ? (body.kam ?? session.user.kamName) : session.user.kamName

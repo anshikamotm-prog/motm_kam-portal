@@ -4,7 +4,7 @@ import { authOptions } from "@/lib/auth"
 import { getSheetValues, appendRow } from "@/lib/sheets"
 import { parseAdminNote } from "@/lib/sheets-helpers"
 import { SHEET_ID, SHEETS, COLS } from "@/constants"
-import { esc, nowIST } from "@/lib/utils"
+import { esc, nowIST, parseFlexDate } from "@/lib/utils"
 
 export async function GET(req: NextRequest) {
   const session = await getServerSession(authOptions)
@@ -26,7 +26,7 @@ export async function GET(req: NextRequest) {
 
   if (clientId) data = data.filter((n) => n.clientId === clientId)
 
-  data.sort((a, b) => b.timestamp.localeCompare(a.timestamp))
+  data.sort((a, b) => (parseFlexDate(b.timestamp)?.getTime() ?? 0) - (parseFlexDate(a.timestamp)?.getTime() ?? 0))
   return NextResponse.json(data)
 }
 

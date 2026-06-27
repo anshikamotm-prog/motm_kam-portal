@@ -46,7 +46,7 @@ export const authOptions: NextAuthOptions = {
               token.fullName = ""
               token.deactivated = true
             } else {
-              token.role = (match[COLS.USER.ROLE] ?? "KAM") as "Admin" | "KAM" | "SE"
+              token.role = (match[COLS.USER.ROLE] ?? "KAM") as "Admin" | "KAM" | "SE" | "DR"
               token.kamName = match[COLS.USER.KAM_NAME] ?? ""
               token.fullName = match[COLS.USER.FULL_NAME] ?? ""
               token.deactivated = false
@@ -73,7 +73,7 @@ export const authOptions: NextAuthOptions = {
     },
     async session({ session, token }) {
       if (session.user) {
-        session.user.role = ((token.role as string) ?? "KAM") as "Admin" | "KAM" | "SE"
+        session.user.role = ((token.role as string) ?? "KAM") as "Admin" | "KAM" | "SE" | "DR"
         session.user.kamName = (token.kamName as string) ?? ""
         session.user.fullName = (token.fullName as string) ?? ""
       }

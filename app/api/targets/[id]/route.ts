@@ -3,7 +3,7 @@ import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 import { getSheetValues, appendRow, batchUpdate } from "@/lib/sheets"
 import { SHEET_ID, SHEETS, COLS } from "@/constants"
-import { esc } from "@/lib/utils"
+import { esc, parsePeriod } from "@/lib/utils"
 
 export async function PATCH(
   req: NextRequest,
@@ -37,6 +37,11 @@ export async function PATCH(
     }
     if (body.type !== undefined || body.notes !== undefined || body.target !== undefined) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+    }
+
+    // H-3: reject invalid period strings before using them
+    if (body.period !== undefined && !parsePeriod(body.period)) {
+      return NextResponse.json({ error: "Invalid period format" }, { status: 400 })
     }
 
     // If this is a carried-forward row (period mismatch), create a new row for the

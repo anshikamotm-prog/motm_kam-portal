@@ -56,7 +56,7 @@ export async function POST(
   for (const action of validActions) {
     const taskId = `TSK-${Date.now()}-${Math.random().toString(36).slice(2, 5)}`
     await appendRow(SHEET_ID, SHEETS.TASK_TRACKER, [
-      taskId, meeting.clientId, meeting.company, meeting.kam,
+      taskId, esc(meeting.clientId), esc(meeting.company), esc(meeting.kam),
       esc(action.owner || meeting.kam),
       esc(`Action from meeting: ${meeting.title}`),
       esc(action.item), "", "Medium", "Open",

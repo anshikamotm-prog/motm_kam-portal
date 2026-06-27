@@ -27,5 +27,6 @@ declare module "next-auth" {
     fullName: string
     email?: string
     sheetLoaded?: boolean
+    deactivated?: boolean
   }
 }

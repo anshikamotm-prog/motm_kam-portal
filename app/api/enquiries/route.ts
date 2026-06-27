@@ -24,7 +24,7 @@ export async function GET() {
     const email = (r[COLS.USER.EMAIL] ?? "").toLowerCase().trim()
     const role = (r[COLS.USER.ROLE] ?? "").trim()
     const name = (r[COLS.USER.FULL_NAME] ?? "").trim()
-    if (role === "SE" && email && name) seByEmail[email] = name
+    if ((role === "SE" || role === "DR") && email && name) seByEmail[email] = name
   })
 
   // Build tracker lookup: key → { status, note, updatedBy, updatedAt }
