@@ -1,14 +1,21 @@
 "use client"
 import { useState } from "react"
-import { useTasks, useUpdateTask } from "@/hooks/useTasks"
+import { useTasks, useUpdateTask, useAddTask } from "@/hooks/useTasks"
 import { PriorityBadge } from "@/components/shared/StatusBadge"
 import { Badge } from "@/components/ui/badge"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Button } from "@/components/ui/button"
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
+import { Input } from "@/components/ui/input"
+import { Textarea } from "@/components/ui/textarea"
+import { Label } from "@/components/ui/label"
 import { PageSpinner } from "@/components/shared/Spinner"
 import { formatDate } from "@/lib/utils"
 import { PRIORITY_OPTIONS } from "@/constants"
 import { useKAMNames } from "@/hooks/useKAMNames"
+import { useTeamMembers } from "@/hooks/useTeamMembers"
+import { useClients } from "@/hooks/useClients"
+import { Plus } from "lucide-react"
 
 const TASK_STATUSES = ["Open", "In Progress", "Pending", "Done", "Cancelled"]
 
@@ -17,6 +24,7 @@ export default function AdminTasksView() {
   const { data: kamNames = [] } = useKAMNames()
   const [filterKam, setFilterKam] = useState("All")
   const [filterPriority, setFilterPriority] = useState("All")
+  const [addOpen, setAddOpen] = useState(false)
 
   const params: Record<string, string> = {}
   if (filterKam !== "All") params.kam = filterKam
@@ -34,7 +42,10 @@ export default function AdminTasksView() {
 
   return (
     <div className="max-w-7xl mx-auto space-y-4">
-      <h1 className="text-2xl font-bold text-[#1e3a5f]">All Tasks</h1>
+      <div className="flex items-center justify-between">
+        <h1 className="text-2xl font-bold text-[#1e3a5f]">All Tasks</h1>
+        <Button size="sm" onClick={() => setAddOpen(true)}><Plus className="h-4 w-4" /> Add Task</Button>
+      </div>
 
       <div className="grid grid-cols-3 gap-3">
         <StatCard label="Open" value={openCount} />
@@ -94,7 +105,76 @@ export default function AdminTasksView() {
           </tbody>
         </table>
       </div>
+
+      {addOpen && <AdminAddTaskModal kamNames={kamNames} onClose={() => setAddOpen(false)} />}
     </div>
+  )
+}
+
+function AdminAddTaskModal({ kamNames, onClose }: { kamNames: string[]; onClose: () => void }) {
+  const addTask = useAddTask()
+  const today = new Date().toISOString().split("T")[0]
+  const [form, setForm] = useState({ kam: "", clientId: "", company: "", title: "", description: "", priority: "Medium", dueDate: today, assignedTo: "" })
+  const set = (k: string, v: string) => setForm((f) => ({ ...f, [k]: v }))
+  const { data: clients = [] } = useClients()
+  const { data: teamMembers = [] } = useTeamMembers(form.kam || undefined)
+
+  const kamClients = form.kam ? clients.filter((c) => c.kam === form.kam) : clients
+
+  return (
+    <Dialog open onOpenChange={onClose}>
+      <DialogContent className="max-w-sm">
+        <DialogHeader><DialogTitle>Add Task</DialogTitle></DialogHeader>
+        <div className="space-y-3">
+          <div className="space-y-1"><Label className="text-xs">KAM</Label>
+            <Select value={form.kam} onValueChange={(v) => { set("kam", v); set("assignedTo", ""); set("clientId", ""); set("company", "") }}>
+              <SelectTrigger><SelectValue placeholder="Select KAM" /></SelectTrigger>
+              <SelectContent>
+                {kamNames.map((k) => <SelectItem key={k} value={k}>{k}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-1"><Label className="text-xs">Assign To</Label>
+            <Select value={form.assignedTo} onValueChange={(v) => set("assignedTo", v)} disabled={!form.kam}>
+              <SelectTrigger><SelectValue placeholder={form.kam ? "Assign to KAM" : "Select KAM first"} /></SelectTrigger>
+              <SelectContent>
+                {form.kam && <SelectItem value="">Assign to KAM ({form.kam})</SelectItem>}
+                {teamMembers.map((u) => (
+                  <SelectItem key={u.fullName} value={u.fullName}>{u.fullName} ({u.role})</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-1"><Label className="text-xs">Client (optional)</Label>
+            <Select value={form.clientId} onValueChange={(v) => { const c = kamClients.find((c) => c.clientId === v); set("clientId", v); set("company", c?.company ?? "") }}>
+              <SelectTrigger><SelectValue placeholder="No client" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="">No client</SelectItem>
+                {kamClients.map((c) => <SelectItem key={c.clientId} value={c.clientId}>{c.company}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-1"><Label className="text-xs">Title *</Label><Input value={form.title} onChange={(e) => set("title", e.target.value)} /></div>
+          <div className="space-y-1"><Label className="text-xs">Description</Label><Textarea value={form.description} onChange={(e) => set("description", e.target.value)} className="min-h-[60px]" /></div>
+          <div className="grid grid-cols-2 gap-2">
+            <div className="space-y-1"><Label className="text-xs">Priority</Label>
+              <Select value={form.priority} onValueChange={(v) => set("priority", v)}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>{PRIORITY_OPTIONS.map((p) => <SelectItem key={p} value={p}>{p}</SelectItem>)}</SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1"><Label className="text-xs">Due Date *</Label><Input type="date" value={form.dueDate} onChange={(e) => set("dueDate", e.target.value)} /></div>
+          </div>
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={onClose}>Cancel</Button>
+          <Button
+            disabled={!form.kam || !form.title || !form.dueDate}
+            onClick={() => { addTask.mutate({ ...form, kam: form.kam, assignedTo: form.assignedTo || undefined }); onClose() }}
+          >Add Task</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   )
 }
 

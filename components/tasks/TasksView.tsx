@@ -15,6 +15,7 @@ import { formatDate } from "@/lib/utils"
 import { PRIORITY_OPTIONS } from "@/constants"
 import { Plus, MessageSquare } from "lucide-react"
 import type { Task } from "@/types/task"
+import { useTeamMembers } from "@/hooks/useTeamMembers"
 
 const TASK_STATUSES = ["Open", "In Progress", "Pending", "Done", "Cancelled"]
 
@@ -138,8 +139,9 @@ function RespondModal({ task, newStatus, onClose, onConfirm }: {
 function AddTaskModal({ clients, onClose }: { clients: { clientId: string; company: string }[]; onClose: () => void }) {
   const addTask = useAddTask()
   const today = new Date().toISOString().split("T")[0]
-  const [form, setForm] = useState({ clientId: "", company: "", title: "", description: "", priority: "Medium", dueDate: today })
+  const [form, setForm] = useState({ clientId: "", company: "", title: "", description: "", priority: "Medium", dueDate: today, assignedTo: "" })
   const set = (k: string, v: string) => setForm((f) => ({ ...f, [k]: v }))
+  const { data: teamMembers = [] } = useTeamMembers()
 
   return (
     <Dialog open onOpenChange={onClose}>
@@ -166,10 +168,23 @@ function AddTaskModal({ clients, onClose }: { clients: { clientId: string; compa
             </div>
             <div className="space-y-1"><Label className="text-xs">Due Date *</Label><Input type="date" value={form.dueDate} onChange={(e) => set("dueDate", e.target.value)} /></div>
           </div>
+          {teamMembers.length > 0 && (
+            <div className="space-y-1"><Label className="text-xs">Assign To</Label>
+              <Select value={form.assignedTo} onValueChange={(v) => set("assignedTo", v)}>
+                <SelectTrigger><SelectValue placeholder="Assign to self (KAM)" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="">Assign to self (KAM)</SelectItem>
+                  {teamMembers.map((u) => (
+                    <SelectItem key={u.fullName} value={u.fullName}>{u.fullName} ({u.role})</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={onClose}>Cancel</Button>
-          <Button disabled={!form.title || !form.dueDate} onClick={() => { addTask.mutate(form); onClose() }}>Add Task</Button>
+          <Button disabled={!form.title || !form.dueDate} onClick={() => { addTask.mutate({ ...form, assignedTo: form.assignedTo || undefined }); onClose() }}>Add Task</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
