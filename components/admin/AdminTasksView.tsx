@@ -117,7 +117,7 @@ function AdminAddTaskModal({ kamNames, onClose }: { kamNames: string[]; onClose:
   const [form, setForm] = useState({ kam: "", clientId: "", company: "", title: "", description: "", priority: "Medium", dueDate: today, assignedTo: "" })
   const set = (k: string, v: string) => setForm((f) => ({ ...f, [k]: v }))
   const { data: clients = [] } = useClients()
-  const { data: teamMembers = [] } = useTeamMembers(form.kam || undefined)
+  const { data: teamMembers = [] } = useTeamMembers(form.kam)
 
   const kamClients = form.kam ? clients.filter((c) => c.kam === form.kam) : clients
 

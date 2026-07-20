@@ -10,7 +10,7 @@ import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { FeedbackBadge, HealthBadge } from "@/components/shared/StatusBadge"
 import { formatDate } from "@/lib/utils"
-import { INTERACTION_TYPES, FEEDBACK_STATUS, HEALTH_OPTIONS, ACTION_OWNERS } from "@/constants"
+import { INTERACTION_TYPES, FEEDBACK_STATUS, HEALTH_OPTIONS, ACTION_OWNERS, RESOLUTION_STATUS_OPTIONS } from "@/constants"
 import type { FeedbackEntry } from "@/types/feedback"
 
 const today = new Date().toISOString().split("T")[0]
@@ -102,7 +102,7 @@ export default function FeedbackView() {
           <Field label="Client *">
             <Select value={form.clientId} onValueChange={handleClientChange}>
               <SelectTrigger><SelectValue placeholder="Select client" /></SelectTrigger>
-              <SelectContent>
+              <SelectContent className="max-h-60 overflow-y-auto">
                 {clients?.map((c) => <SelectItem key={c.clientId} value={c.clientId}>{c.company}</SelectItem>)}
               </SelectContent>
             </Select>
@@ -156,6 +156,14 @@ export default function FeedbackView() {
           </Field>
           <Field label="Action Due Date">
             <Input type="date" value={form.actionDueDate} onChange={(e) => set("actionDueDate", e.target.value)} />
+          </Field>
+          <Field label="Resolution Status">
+            <Select value={form.resolutionStatus} onValueChange={(v) => set("resolutionStatus", v)}>
+              <SelectTrigger><SelectValue placeholder="Select status" /></SelectTrigger>
+              <SelectContent>
+                {RESOLUTION_STATUS_OPTIONS.map((o) => <SelectItem key={o} value={o}>{o}</SelectItem>)}
+              </SelectContent>
+            </Select>
           </Field>
           <Field label="Next Follow-up Date">
             <Input type="date" value={form.nextFollowupDate} onChange={(e) => set("nextFollowupDate", e.target.value)} />

@@ -6,7 +6,7 @@ import { parseFeedback } from "@/lib/sheets-helpers"
 import { SHEET_ID, SHEETS, COLS } from "@/constants"
 import { esc, nowIST, parseFlexDate } from "@/lib/utils"
 
-export async function GET() {
+export async function GET(req: NextRequest) {
   const session = await getServerSession(authOptions)
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   if (session.user.role === "SE" || session.user.role === "DR") return NextResponse.json({ error: "Forbidden" }, { status: 403 })
@@ -15,14 +15,22 @@ export async function GET() {
     const rows = await getSheetValues(SHEET_ID, SHEETS.FEEDBACK_LOG)
     const data = rows.slice(1).map((row, i) => parseFeedback(row, i + 2))
 
-    const cutoff = new Date()
-    cutoff.setDate(cutoff.getDate() - 30)
+    const filterClientId = req.nextUrl.searchParams.get("clientId")
+
+    // When fetching by clientId (popup), skip the 30-day cutoff so all history is available
+    const cutoff = filterClientId ? null : (() => {
+      const d = new Date(); d.setDate(d.getDate() - 30); return d
+    })()
 
     const filtered = data
       .filter((f) => {
         if (session.user.role !== "Admin" && f.kam !== session.user.kamName) return false
-        const d = parseFlexDate(f.date) // H-2: handle DD/MM/YYYY dates from Google Forms
-        return d !== null && d >= cutoff
+        if (filterClientId && f.clientId !== filterClientId) return false
+        if (cutoff) {
+          const d = parseFlexDate(f.date)
+          return d !== null && d >= cutoff
+        }
+        return true
       })
       .sort((a, b) => {
         const da = parseFlexDate(a.date)?.getTime() ?? 0

@@ -43,6 +43,8 @@ export const TARGET_TYPES = ["Enquiries", "PO", "Visits", "Revenue", "Data Colle
 
 export const EMAIL_RESPONSE_TYPES = ["Positive", "Neutral", "Negative"] as const
 
+export const RESOLUTION_STATUS_OPTIONS = ["Open", "In Progress", "Resolved", "Closed"] as const
+
 // Sheet tab names
 export const SHEETS = {
   CLIENT_MASTER: "Client Master",
