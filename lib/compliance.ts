@@ -48,7 +48,7 @@ export function computeCompliance(
   const meetingScore =
     scheduledThisMonth.length > 0
       ? Math.round((completedThisMonth.length / scheduledThisMonth.length) * 25)
-      : 25
+      : 0
 
   // MOM score
   const momMeetings = myMeetings.filter(
@@ -59,16 +59,16 @@ export function computeCompliance(
   const momScore =
     momShared + momPending > 0
       ? Math.round((momShared / (momShared + momPending)) * 20)
-      : 20
+      : 0
 
   // Task score
   const myTasks = tasks.filter((t) => t.kam === kamName)
   const doneTasks = myTasks.filter((t) => t.status === "Done" || t.status === "Completed").length
   const overdueTasks = myTasks.filter((t) => t.overdue === "YES").length
   const taskScore =
-    doneTasks + overdueTasks > 0
+    myTasks.length > 0
       ? Math.round((doneTasks / myTasks.length) * 15)
-      : 15
+      : 0
 
   // Status score: clients updated in last 14 days
   const updatedRecently = myClients.filter((c) => {

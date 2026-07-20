@@ -21,9 +21,13 @@ export async function GET() {
       getKAMNames(),
     ])
 
-    const clients = clientRows.slice(1).map((r, i) => parseClient(r, i + 2))
+    const allClients = clientRows.slice(1).map((r, i) => parseClient(r, i + 2))
     const meetings = meetingRows.slice(1).map((r, i) => parseMeeting(r, i + 2))
     const tasks = taskRows.slice(1).map((r, i) => parseTask(r, i + 2))
+
+    const INACTIVE = ["Closed", "On Hold", "Uncountable"]
+    const clients = allClients.filter((c) => !INACTIVE.includes(c.status))
+    const inactiveClients = allClients.filter((c) => INACTIVE.includes(c.status))
 
     const today = new Date().toISOString().split("T")[0]
     const thisMonth = today.slice(0, 7)
@@ -68,7 +72,14 @@ export async function GET() {
       .sort((a, b) => (b.daysSince ?? 0) - (a.daysSince ?? 0))
       .slice(0, 20)
 
-    return NextResponse.json({ stats, kamBreakdown, criticalClients })
+    const otherClients = INACTIVE.map((status) => ({
+      status,
+      clients: inactiveClients
+        .filter((c) => c.status === status)
+        .map((c) => ({ clientId: c.clientId, company: c.company, kam: c.kam })),
+    })).filter((g) => g.clients.length > 0)
+
+    return NextResponse.json({ stats, kamBreakdown, criticalClients, otherClients })
   } catch (err) {
     console.error("[admin/overview GET]", err)
     return NextResponse.json({ error: "Failed to load overview" }, { status: 500 })

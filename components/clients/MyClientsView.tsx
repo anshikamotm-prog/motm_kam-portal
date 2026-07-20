@@ -42,7 +42,7 @@ export default function MyClientsView() {
       {/* Detail Panel */}
       <div className="flex-1 overflow-y-auto">
         {selected ? (
-          <ClientDetail client={selected} onUpdated={(updated) => setSelected(updated)} />
+          <ClientDetail key={selected.clientId} client={selected} onUpdated={(updated) => setSelected(updated)} />
         ) : (
           <div className="flex h-full items-center justify-center text-slate-400 text-sm">
             Select a client to view details

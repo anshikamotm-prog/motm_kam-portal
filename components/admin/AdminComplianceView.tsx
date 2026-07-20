@@ -1,4 +1,5 @@
 "use client"
+import { useState } from "react"
 import { useQuery } from "@tanstack/react-query"
 import { ComplianceBar } from "@/components/shared/ComplianceBar"
 import { Badge } from "@/components/ui/badge"
@@ -76,6 +77,10 @@ export default function AdminComplianceView() {
 }
 
 function MonitoringCard({ title, clients, danger }: { title: string; clients: { company: string; health: string; feedbackStatus: string }[]; danger?: boolean }) {
+  const [expanded, setExpanded] = useState(false)
+  const PREVIEW = 5
+  const visible = expanded ? clients : clients.slice(0, PREVIEW)
+
   if (clients.length === 0) return (
     <div className="bg-white rounded-xl border border-slate-100 p-3">
       <div className="text-xs font-medium text-slate-500 mb-1">{title}</div>
@@ -87,13 +92,20 @@ function MonitoringCard({ title, clients, danger }: { title: string; clients: { 
     <div className={`bg-white rounded-xl border p-3 ${danger ? "border-red-200" : "border-slate-200"}`}>
       <div className={`text-xs font-medium mb-2 ${danger ? "text-red-600" : "text-slate-600"}`}>{title} ({clients.length})</div>
       <div className="space-y-1">
-        {clients.slice(0, 5).map((c, i) => (
+        {visible.map((c, i) => (
           <div key={i} className="flex items-center gap-2 text-xs">
             <HealthBadge health={c.health} />
             <span className="text-slate-700 truncate">{c.company}</span>
           </div>
         ))}
-        {clients.length > 5 && <div className="text-xs text-slate-400">+{clients.length - 5} more</div>}
+        {clients.length > PREVIEW && (
+          <button
+            onClick={() => setExpanded((v) => !v)}
+            className="text-xs text-[#0369a1] hover:underline mt-1"
+          >
+            {expanded ? "Show less" : `+${clients.length - PREVIEW} more`}
+          </button>
+        )}
       </div>
     </div>
   )
