@@ -29,9 +29,6 @@ export async function GET() {
     const clients = allClients.filter((c) => !INACTIVE.includes(c.status))
     const inactiveClients = allClients.filter((c) => INACTIVE.includes(c.status))
 
-    const today = new Date().toISOString().split("T")[0]
-    const thisMonth = today.slice(0, 7)
-
     const stats = {
       total: clients.length,
       green: clients.filter((c) => c.health === "Green").length,
@@ -79,7 +76,15 @@ export async function GET() {
         .map((c) => ({ clientId: c.clientId, company: c.company, kam: c.kam })),
     })).filter((g) => g.clients.length > 0)
 
-    return NextResponse.json({ stats, kamBreakdown, criticalClients, otherClients })
+    const ONBOARDING = ["New", "Pending"]
+    const onboardingClients = ONBOARDING.map((status) => ({
+      status,
+      clients: clients
+        .filter((c) => c.status === status)
+        .map((c) => ({ clientId: c.clientId, company: c.company, kam: c.kam })),
+    })).filter((g) => g.clients.length > 0)
+
+    return NextResponse.json({ stats, kamBreakdown, criticalClients, otherClients, onboardingClients })
   } catch (err) {
     console.error("[admin/overview GET]", err)
     return NextResponse.json({ error: "Failed to load overview" }, { status: 500 })

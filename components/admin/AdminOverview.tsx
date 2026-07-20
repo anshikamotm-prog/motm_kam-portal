@@ -19,6 +19,7 @@ interface OverviewData {
   kamBreakdown: Array<{ kam: string; total: number; green: number; orange: number; red: number; atRisk: number; overdue: number }>
   criticalClients: Array<{ clientId: string; company: string; kam: string; health: string; feedbackStatus: string; lastFeedbackDate: string; daysSince: number | null }>
   otherClients: Array<{ status: string; clients: Array<{ clientId: string; company: string; kam: string }> }>
+  onboardingClients: Array<{ status: string; clients: Array<{ clientId: string; company: string; kam: string }> }>
 }
 
 export default function AdminOverview() {
@@ -36,7 +37,7 @@ export default function AdminOverview() {
     </div>
   )
 
-  const { stats, kamBreakdown, criticalClients, otherClients = [] } = data
+  const { stats, kamBreakdown, criticalClients, otherClients = [], onboardingClients = [] } = data
 
   return (
     <div className="max-w-7xl mx-auto space-y-6">
@@ -112,6 +113,31 @@ export default function AdminOverview() {
           </table>
         </div>
       </div>
+
+      {/* Onboarding Clients — New / Pending */}
+      {onboardingClients.length > 0 && (
+        <div>
+          <h2 className="text-lg font-semibold text-[#1e3a5f] mb-3">Onboarding Clients</h2>
+          <div className="grid grid-cols-2 gap-3">
+            {onboardingClients.map((group) => (
+              <div key={group.status} className="bg-white rounded-xl border border-blue-200 overflow-hidden shadow-sm">
+                <div className="px-4 py-2.5 bg-blue-50 border-b border-blue-200 flex items-center justify-between">
+                  <span className="text-sm font-semibold text-blue-700">{group.status}</span>
+                  <Badge variant="blue">{group.clients.length}</Badge>
+                </div>
+                <div className="divide-y divide-slate-100">
+                  {group.clients.map((c) => (
+                    <div key={c.clientId} className="px-4 py-2.5 flex items-center justify-between text-sm">
+                      <span className="text-slate-800 font-medium">{c.company}</span>
+                      <span className="text-xs text-slate-400">{c.kam}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Other Clients — Closed / On Hold / On Notice */}
       {otherClients.length > 0 && (

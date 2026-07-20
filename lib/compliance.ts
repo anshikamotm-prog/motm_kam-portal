@@ -64,7 +64,6 @@ export function computeCompliance(
   // Task score
   const myTasks = tasks.filter((t) => t.kam === kamName)
   const doneTasks = myTasks.filter((t) => t.status === "Done" || t.status === "Completed").length
-  const overdueTasks = myTasks.filter((t) => t.overdue === "YES").length
   const taskScore =
     myTasks.length > 0
       ? Math.round((doneTasks / myTasks.length) * 15)

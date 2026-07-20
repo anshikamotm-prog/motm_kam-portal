@@ -20,7 +20,9 @@ export async function GET() {
     getKAMNames(),
   ])
 
+  const INACTIVE = ["Closed", "On Hold", "Uncountable"]
   const clients = clientRows.slice(1).map((r, i) => parseClient(r, i + 2))
+    .filter((c) => !INACTIVE.includes(c.status))
   const meetings = meetingRows.slice(1).map((r, i) => parseMeeting(r, i + 2))
   const tasks = taskRows.slice(1).map((r, i) => parseTask(r, i + 2))
   const feedback = feedbackRows.slice(1).map((r, i) => parseFeedback(r, i + 2))
