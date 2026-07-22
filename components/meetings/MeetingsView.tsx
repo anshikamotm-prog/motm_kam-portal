@@ -162,7 +162,7 @@ function ScheduleMeetingModal({ open, clients, initialClientId = "", onClose }: 
           <div className="space-y-1"><Label className="text-xs">Client</Label>
             <Select value={form.clientId} onValueChange={(v) => { const c = clients.find((c) => c.clientId === v); set("clientId", v); set("company", c?.company ?? "") }}>
               <SelectTrigger><SelectValue placeholder="Select" /></SelectTrigger>
-              <SelectContent>{clients.map((c) => <SelectItem key={c.clientId} value={c.clientId}>{c.company}</SelectItem>)}</SelectContent>
+              <SelectContent className="max-h-60 overflow-y-auto">{clients.map((c) => <SelectItem key={c.clientId} value={c.clientId}>{c.company}</SelectItem>)}</SelectContent>
             </Select>
           </div>
           <div className="space-y-1"><Label className="text-xs">Meeting Type</Label>

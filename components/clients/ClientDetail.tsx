@@ -1,18 +1,22 @@
 "use client"
-import { useState } from "react"
+import { useState, useMemo } from "react"
 import type { Client } from "@/types/client"
 import { useUpdateClient } from "@/hooks/useClients"
+import { useMeetings } from "@/hooks/useMeetings"
+import { useTasks } from "@/hooks/useTasks"
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import { HealthDot } from "@/components/shared/HealthDot"
 import { HealthBadge, FeedbackBadge, ClientStatusBadge } from "@/components/shared/StatusBadge"
+import { LogFeedbackModal } from "@/components/shared/LogFeedbackModal"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Label } from "@/components/ui/label"
 import { Badge } from "@/components/ui/badge"
-import { formatDate, daysSince } from "@/lib/utils"
-import { STATUS_OPTIONS, HEALTH_OPTIONS, FEEDBACK_STATUS } from "@/constants"
-import { ExternalLink, MessageSquare, CalendarPlus, FileText, Star, ChevronDown, ChevronUp, Plus } from "lucide-react"
+import { formatDate, daysSince, cn } from "@/lib/utils"
+import { STATUS_OPTIONS, HEALTH_OPTIONS, FEEDBACK_STATUS, RESOLUTION_STATUS_OPTIONS } from "@/constants"
+import type { FeedbackEntry } from "@/types/feedback"
+import { ExternalLink, MessageSquare, CalendarPlus, FileText, Star, ChevronDown, ChevronUp, Plus, Activity } from "lucide-react"
 
 interface Props {
   client: Client
@@ -31,14 +35,77 @@ export function ClientDetail({ client, onUpdated }: Props) {
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
   const [showMOM, setShowMOM] = useState(false)
+  const [showTimeline, setShowTimeline] = useState(false)
+  const [showFeedbackModal, setShowFeedbackModal] = useState(false)
+  const [resolutionStatus, setResolutionStatus] = useState("")
   const update = useUpdateClient()
   const qc = useQueryClient()
+
+  const { data: feedbackData } = useQuery<FeedbackEntry[]>({
+    queryKey: ["feedback", client.clientId],
+    queryFn: () => fetch(`/api/feedback?clientId=${client.clientId}`).then((r) => r.json()),
+  })
+  const lastFeedback = Array.isArray(feedbackData) ? (feedbackData[0] ?? null) : null
+
+  const updateResolution = useMutation({
+    mutationFn: (data: { rowNum: number; resolutionStatus: string }) =>
+      fetch("/api/feedback", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(data) }).then((r) => r.json()),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["feedback", client.clientId] })
+      setResolutionStatus("") // clear local selection so the refreshed value from the query drives the display
+    },
+  })
 
   const { data: momEntries = [], isLoading: momLoading } = useQuery<any[]>({
     queryKey: ["mom", client.clientId],
     queryFn: () => fetch(`/api/mom/${client.clientId}`).then((r) => r.json()),
     enabled: showMOM,
   })
+
+  const { data: allMeetings = [] } = useMeetings()
+  const { data: allTasks = [] } = useTasks()
+
+  // Compute timeline only when expanded
+  const timeline = useMemo(() => {
+    if (!showTimeline) return []
+    type TEntry = { type: "feedback" | "meeting" | "task"; date: string; label: string; sub: string; done: boolean }
+    const events: TEntry[] = []
+
+    if (Array.isArray(feedbackData)) {
+      feedbackData.forEach((f) => events.push({
+        type: "feedback",
+        date: f.date,
+        label: f.interactionType || "Feedback",
+        sub: f.whatDiscussed,
+        done: true,
+      }))
+    }
+
+    allMeetings
+      .filter((m) => m.clientId === client.clientId)
+      .forEach((m) => events.push({
+        type: "meeting",
+        date: m.date,
+        label: m.title || m.meetingType || "Meeting",
+        sub: m.status,
+        done: m.status === "Completed",
+      }))
+
+    allTasks
+      .filter((t) => t.clientId === client.clientId)
+      .forEach((t) => events.push({
+        type: "task",
+        date: t.dueDate || "",
+        label: t.title,
+        sub: t.status,
+        done: t.status === "Done" || t.status === "Completed",
+      }))
+
+    return events
+      .filter((e) => e.date)
+      .sort((a, b) => (b.date > a.date ? 1 : b.date < a.date ? -1 : 0))
+      .slice(0, 30)
+  }, [showTimeline, feedbackData, allMeetings, allTasks, client.clientId])
 
   const createTask = useMutation({
     mutationFn: (data: object) => fetch("/api/tasks", {
@@ -50,11 +117,14 @@ export function ClientDetail({ client, onUpdated }: Props) {
 
   const handleSave = async () => {
     setSaving(true)
-    await update.mutateAsync({ id: client.clientId, ...form })
-    setSaving(false)
-    setSaved(true)
-    onUpdated({ ...client, ...form })
-    setTimeout(() => setSaved(false), 2000)
+    try {
+      await update.mutateAsync({ id: client.clientId, ...form })
+      setSaved(true)
+      onUpdated({ ...client, ...form })
+      setTimeout(() => setSaved(false), 2000)
+    } finally {
+      setSaving(false)
+    }
   }
 
   const days = daysSince(client.lastFeedbackDate)
@@ -142,10 +212,8 @@ export function ClientDetail({ client, onUpdated }: Props) {
           <Button size="sm" onClick={handleSave} disabled={saving}>
             {saving ? "Saving..." : saved ? "Saved ✓" : "Save"}
           </Button>
-          <Button size="sm" variant="outline" asChild>
-            <a href={`/dashboard/feedback?clientId=${client.clientId}`}>
-              <MessageSquare className="h-3.5 w-3.5" /> Log Feedback
-            </a>
+          <Button size="sm" variant="outline" onClick={() => setShowFeedbackModal(true)}>
+            <MessageSquare className="h-3.5 w-3.5" /> Log Feedback
           </Button>
           <Button size="sm" variant="outline" asChild>
             <a href={`/dashboard/meetings?new=1&clientId=${client.clientId}`}>
@@ -154,6 +222,60 @@ export function ClientDetail({ client, onUpdated }: Props) {
           </Button>
         </div>
       </div>
+
+      {/* Last Feedback */}
+      {lastFeedback && (
+        <div className="rounded-xl border border-slate-200 p-4 space-y-2.5">
+          <div className="flex items-center justify-between">
+            <h3 className="text-sm font-semibold text-slate-700">Last Feedback</h3>
+            <span className="text-xs text-slate-400">{formatDate(lastFeedback.date)}</span>
+          </div>
+          <div className="flex flex-wrap gap-1.5">
+            {lastFeedback.healthUpdate && <HealthBadge health={lastFeedback.healthUpdate} />}
+            {lastFeedback.feedbackStatus && <FeedbackBadge status={lastFeedback.feedbackStatus} />}
+            {lastFeedback.interactionType && <Badge variant="gray">{lastFeedback.interactionType}</Badge>}
+          </div>
+          {lastFeedback.whatDiscussed && (
+            <div className="text-xs text-slate-600 bg-slate-50 rounded px-2 py-1.5">
+              <span className="font-medium text-slate-500">Discussed: </span>{lastFeedback.whatDiscussed}
+            </div>
+          )}
+          {lastFeedback.clientConcern && (
+            <div className="text-xs text-slate-600 bg-yellow-50 rounded px-2 py-1.5">
+              <span className="font-medium text-yellow-700">Client Concern: </span>{lastFeedback.clientConcern}
+            </div>
+          )}
+          {lastFeedback.actionRequired && (
+            <div className="text-xs text-slate-600 bg-blue-50 rounded px-2 py-1.5">
+              <span className="font-medium text-blue-600">Action: </span>{lastFeedback.actionRequired}
+              {lastFeedback.actionOwner && <span className="text-slate-400"> · {lastFeedback.actionOwner}</span>}
+              {lastFeedback.actionDueDate && <span className="text-slate-400"> · Due {formatDate(lastFeedback.actionDueDate)}</span>}
+            </div>
+          )}
+          <div className="flex items-center gap-2 pt-1 border-t border-slate-100">
+            <Label className="text-xs shrink-0 text-slate-500">Resolution:</Label>
+            <Select
+              value={resolutionStatus || lastFeedback.resolutionStatus}
+              onValueChange={setResolutionStatus}
+            >
+              <SelectTrigger className="h-7 text-xs flex-1">
+                <SelectValue placeholder="Not set" />
+              </SelectTrigger>
+              <SelectContent>
+                {RESOLUTION_STATUS_OPTIONS.map((o) => <SelectItem key={o} value={o}>{o}</SelectItem>)}
+              </SelectContent>
+            </Select>
+            <Button
+              size="sm"
+              className="h-7 text-xs px-3 shrink-0"
+              disabled={!resolutionStatus || resolutionStatus === lastFeedback.resolutionStatus || updateResolution.isPending}
+              onClick={() => updateResolution.mutate({ rowNum: lastFeedback.rowNum, resolutionStatus })}
+            >
+              {updateResolution.isPending ? "..." : updateResolution.isSuccess ? "Saved ✓" : "Update"}
+            </Button>
+          </div>
+        </div>
+      )}
 
       {/* Quick action links */}
       <div className="flex flex-wrap gap-2">
@@ -193,6 +315,51 @@ export function ClientDetail({ client, onUpdated }: Props) {
             <div className="text-xs text-slate-500">Monthly: ₹{client.monthlyValue}</div>
           )}
         </div>
+      </div>
+
+      {/* Activity Timeline */}
+      <div className="rounded-xl border border-slate-200 overflow-hidden">
+        <button
+          onClick={() => setShowTimeline((v) => !v)}
+          className="w-full flex items-center justify-between px-4 py-2.5 bg-slate-50 text-sm font-semibold text-slate-700 hover:bg-slate-100"
+        >
+          <span className="flex items-center gap-2">
+            <Activity className="h-4 w-4 text-slate-400" />
+            Activity Timeline
+          </span>
+          {showTimeline ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+        </button>
+        {showTimeline && (
+          <div className="divide-y divide-slate-100">
+            {timeline.length === 0 && (
+              <div className="px-4 py-6 text-xs text-slate-400 text-center">No activity recorded</div>
+            )}
+            {timeline.map((entry, i) => (
+              <div key={i} className="px-4 py-2.5 flex gap-3 items-start">
+                <div className="mt-1.5 shrink-0">
+                  {entry.type === "feedback" && <div className="h-2 w-2 rounded-full bg-blue-400" />}
+                  {entry.type === "meeting" && <div className="h-2 w-2 rounded-full bg-green-400" />}
+                  {entry.type === "task" && <div className="h-2 w-2 rounded-full bg-purple-400" />}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-xs font-medium text-slate-700 capitalize">{entry.type}</span>
+                    <span className="text-[10px] text-slate-400 shrink-0">{formatDate(entry.date)}</span>
+                  </div>
+                  <div className="text-xs text-slate-600 truncate">{entry.label}</div>
+                  {entry.sub && (
+                    <div className={cn(
+                      "text-[10px] mt-0.5",
+                      entry.done ? "text-green-600" : "text-slate-400"
+                    )}>
+                      {entry.sub}
+                    </div>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* MOM History */}
@@ -257,6 +424,15 @@ export function ClientDetail({ client, onUpdated }: Props) {
             </div>
           )}
         </div>
+      )}
+
+      {/* Inline Log Feedback modal */}
+      {showFeedbackModal && (
+        <LogFeedbackModal
+          client={client}
+          onClose={() => setShowFeedbackModal(false)}
+          onSaved={() => qc.invalidateQueries({ queryKey: ["feedback", client.clientId] })}
+        />
       )}
     </div>
   )

@@ -3,12 +3,15 @@ import { useState, useMemo } from "react"
 import { useSession } from "next-auth/react"
 import { useTargets, useUpdateTarget } from "@/hooks/useTargets"
 import { useTargetsSummary } from "@/hooks/useTargetsSummary"
+import { useClients } from "@/hooks/useClients"
 import { TargetStatusBadge } from "@/components/shared/StatusBadge"
 import { Badge } from "@/components/ui/badge"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { ComplianceBar } from "@/components/shared/ComplianceBar"
 import { PageSpinner } from "@/components/shared/Spinner"
 import { getCurrentPeriod, formatPeriodLabel, isoWeekToMonth } from "@/lib/utils"
+
+const EXCLUDE = ["Closed", "On Hold", "Uncountable"]
 
 type GroupBy = "client" | "se"
 type ViewMode = "targets" | "history"
@@ -23,6 +26,7 @@ export default function TargetsView() {
   const { data: session } = useSession()
   const { data: targets, isLoading } = useTargets()
   const updateTarget = useUpdateTarget()
+  const { data: allClients = [] } = useClients()
   const [period, setPeriod] = useState(getCurrentPeriod())
   const [groupBy, setGroupBy] = useState<GroupBy>("client")
   const [viewMode, setViewMode] = useState<ViewMode>("targets")
@@ -45,6 +49,11 @@ export default function TargetsView() {
     () => targets?.filter((t) => t.period === effectivePeriod) ?? [],
     [targets, effectivePeriod],
   )
+
+  const clientsWithoutTarget = useMemo(() => {
+    const clientIdsWithTarget = new Set(filtered.map((t) => t.clientId).filter(Boolean))
+    return allClients.filter((c) => !EXCLUDE.includes(c.status) && !clientIdsWithTarget.has(c.clientId))
+  }, [allClients, filtered])
 
   // Month derived from selected ISO week (e.g. "2026 W26" → "Jun 2026")
   const monthPeriod = useMemo(() => isoWeekToMonth(effectivePeriod), [effectivePeriod])
@@ -306,6 +315,30 @@ export default function TargetsView() {
           </div>
         )
       })}
+
+      {/* Clients without target this period */}
+      {viewMode === "targets" && clientsWithoutTarget.length > 0 && (
+        <div className="bg-white rounded-xl border border-amber-200 overflow-hidden shadow-sm">
+          <div className="px-4 py-2.5 bg-amber-50 border-b border-amber-200 flex items-center justify-between">
+            <span className="text-sm font-semibold text-amber-700">No Target Set This Period</span>
+            <Badge variant="orange">{clientsWithoutTarget.length}</Badge>
+          </div>
+          <div className="divide-y divide-slate-100">
+            {clientsWithoutTarget.map((c) => (
+              <div key={c.clientId} className="px-4 py-2.5 flex items-center justify-between text-sm">
+                <div>
+                  <span className="font-medium text-slate-800">{c.company}</span>
+                  <span className="ml-2 text-[10px] text-slate-400">{c.clientId}</span>
+                </div>
+                <div className="flex items-center gap-2 text-xs text-slate-500">
+                  {c.kam && <span>{c.kam}</span>}
+                  <span className="bg-slate-100 px-2 py-0.5 rounded">{c.status}</span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* By SE View */}
       {viewMode === "targets" && groupBy === "se" && Object.entries(bySE).map(([se, rows]) => {

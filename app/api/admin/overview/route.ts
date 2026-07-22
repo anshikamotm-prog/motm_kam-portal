@@ -84,7 +84,11 @@ export async function GET() {
         .map((c) => ({ clientId: c.clientId, company: c.company, kam: c.kam })),
     })).filter((g) => g.clients.length > 0)
 
-    return NextResponse.json({ stats, kamBreakdown, criticalClients, otherClients, onboardingClients })
+    const unassignedClients = clients
+      .filter((c) => !c.kam || c.kam.trim() === "")
+      .map((c) => ({ clientId: c.clientId, company: c.company, status: c.status }))
+
+    return NextResponse.json({ stats, kamBreakdown, criticalClients, otherClients, onboardingClients, unassignedClients })
   } catch (err) {
     console.error("[admin/overview GET]", err)
     return NextResponse.json({ error: "Failed to load overview" }, { status: 500 })

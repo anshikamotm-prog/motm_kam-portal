@@ -3,7 +3,7 @@ import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 import { getSheetValues, appendRow, batchUpdate, colToLetter } from "@/lib/sheets"
 import { parseFeedback } from "@/lib/sheets-helpers"
-import { SHEET_ID, SHEETS, COLS } from "@/constants"
+import { SHEET_ID, SHEETS, COLS, RESOLUTION_STATUS_OPTIONS } from "@/constants"
 import { esc, nowIST, parseFlexDate } from "@/lib/utils"
 
 export async function GET(req: NextRequest) {
@@ -42,6 +42,37 @@ export async function GET(req: NextRequest) {
   } catch (err) {
     console.error("[feedback GET]", err)
     return NextResponse.json({ error: "Failed to load feedback" }, { status: 500 })
+  }
+}
+
+export async function PATCH(req: NextRequest) {
+  const session = await getServerSession(authOptions)
+  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+  if (session.user.role === "SE" || session.user.role === "DR") return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+
+  const { rowNum, resolutionStatus } = await req.json()
+  if (!rowNum || !resolutionStatus) return NextResponse.json({ error: "rowNum and resolutionStatus required" }, { status: 400 })
+  if (!(RESOLUTION_STATUS_OPTIONS as readonly string[]).includes(resolutionStatus)) {
+    return NextResponse.json({ error: "Invalid resolutionStatus" }, { status: 400 })
+  }
+
+  try {
+    const rows = await getSheetValues(SHEET_ID, SHEETS.FEEDBACK_LOG)
+    const row = rows[rowNum - 1]
+    if (!row) return NextResponse.json({ error: "Row not found" }, { status: 404 })
+    if (session.user.role !== "Admin" && row[COLS.FEEDBACK.KAM] !== session.user.kamName) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+    }
+
+    await batchUpdate(SHEET_ID, [{
+      range: `${SHEETS.FEEDBACK_LOG}!${colToLetter(COLS.FEEDBACK.RESOLUTION_STATUS + 1)}${rowNum}`,
+      values: [[esc(resolutionStatus)]],
+    }])
+
+    return NextResponse.json({ success: true })
+  } catch (err) {
+    console.error("[feedback PATCH]", err)
+    return NextResponse.json({ error: "Failed to update feedback" }, { status: 500 })
   }
 }
 

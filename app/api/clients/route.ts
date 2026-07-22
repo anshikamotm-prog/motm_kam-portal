@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server"
+import { NextResponse } from "next/server"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 import { getSheetValues } from "@/lib/sheets"
@@ -13,12 +13,13 @@ export async function GET() {
     const rows = await getSheetValues(SHEET_ID, SHEETS.CLIENT_MASTER)
     const data = rows.slice(1).map((row, i) => parseClient(row, i + 2))
 
+    const INACTIVE = ["Closed", "Uncountable"]
     const filtered =
       session.user.role === "Admin"
         ? data
         : session.user.role === "SE"
-        ? data.filter((c) => c.se === session.user.fullName)
-        : data.filter((c) => c.kam === session.user.kamName) // KAM and DR both see their KAM team's clients
+        ? data.filter((c) => c.se === session.user.fullName && !INACTIVE.includes(c.status))
+        : data.filter((c) => c.kam === session.user.kamName && !INACTIVE.includes(c.status))
 
     return NextResponse.json(filtered)
   } catch (err) {
