@@ -21,7 +21,7 @@ interface OverviewData {
     total: number; green: number; orange: number; red: number
     planningToLeave: number; intentToLeave: number; overdueFollowup: number; monthRevenue: number
   }
-  kamBreakdown: Array<{ kam: string; total: number; green: number; orange: number; red: number; atRisk: number; overdue: number }>
+  kamBreakdown: Array<{ kam: string; total: number; green: number; orange: number; red: number; onHold: number; atRisk: number; overdue: number }>
   criticalClients: Array<{ clientId: string; company: string; kam: string; health: string; feedbackStatus: string; lastFeedbackDate: string; daysSince: number | null }>
   otherClients: Array<{ status: string; clients: Array<{ clientId: string; company: string; kam: string }> }>
   onboardingClients: Array<{ status: string; clients: Array<{ clientId: string; company: string; kam: string }> }>
@@ -59,8 +59,8 @@ export default function AdminOverview() {
         <StatCard label="Green" value={stats.green} color="text-green-600" onClick={() => openFilter("Green Clients", (c) => !INACTIVE.includes(c.status) && c.health === "Green")} />
         <StatCard label="Orange" value={stats.orange} color="text-orange-500" onClick={() => openFilter("Orange Clients", (c) => !INACTIVE.includes(c.status) && c.health === "Orange")} />
         <StatCard label="Red" value={stats.red} color="text-red-600" onClick={() => openFilter("Red Clients", (c) => !INACTIVE.includes(c.status) && c.health === "Red")} />
-        <StatCard label="Planning to Leave" value={stats.planningToLeave} warn onClick={() => openFilter("Planning to Leave", (c) => c.feedbackStatus === "Planning to Leave")} />
-        <StatCard label="Intent to Leave" value={stats.intentToLeave} danger onClick={() => openFilter("Intent to Leave", (c) => c.feedbackStatus === "Intent to Leave")} />
+        <StatCard label="Planning to Leave" value={stats.planningToLeave} warn onClick={() => openFilter("Planning to Leave", (c) => !INACTIVE.includes(c.status) && c.feedbackStatus === "Planning to Leave")} />
+        <StatCard label="Intent to Leave" value={stats.intentToLeave} danger onClick={() => openFilter("Intent to Leave", (c) => !INACTIVE.includes(c.status) && c.feedbackStatus === "Intent to Leave")} />
         <StatCard label="Overdue Follow-up" value={stats.overdueFollowup} warn={stats.overdueFollowup > 0} onClick={() => openFilter("Overdue Follow-up (>7 days)", (c) => { const d = daysSince(c.lastFeedbackDate); return d !== null && d > 7 && !INACTIVE.includes(c.status) })} />
         <StatCard label="Month Revenue" value={`₹${(stats.monthRevenue / 100000).toFixed(1)}L`} />
       </div>
@@ -74,14 +74,19 @@ export default function AdminOverview() {
               <div className="font-semibold text-slate-800 mb-2">{k.kam}</div>
               <div className="grid grid-cols-4 gap-2 text-center text-xs">
                 <KAMStat label="Total" value={k.total} color="text-slate-700" onClick={() => openFilter(`${k.kam} — All`, (c) => c.kam === k.kam && !INACTIVE.includes(c.status))} />
-                <KAMStat label="Green" value={k.green} color="text-green-600" onClick={() => openFilter(`${k.kam} — Green`, (c) => c.kam === k.kam && c.health === "Green")} />
-                <KAMStat label="Orange" value={k.orange} color="text-orange-500" onClick={() => openFilter(`${k.kam} — Orange`, (c) => c.kam === k.kam && c.health === "Orange")} />
-                <KAMStat label="Red" value={k.red} color="text-red-600" onClick={() => openFilter(`${k.kam} — Red`, (c) => c.kam === k.kam && c.health === "Red")} />
+                <KAMStat label="Green" value={k.green} color="text-green-600" onClick={() => openFilter(`${k.kam} — Green`, (c) => c.kam === k.kam && !INACTIVE.includes(c.status) && c.health === "Green")} />
+                <KAMStat label="Orange" value={k.orange} color="text-orange-500" onClick={() => openFilter(`${k.kam} — Orange`, (c) => c.kam === k.kam && !INACTIVE.includes(c.status) && c.health === "Orange")} />
+                <KAMStat label="Red" value={k.red} color="text-red-600" onClick={() => openFilter(`${k.kam} — Red`, (c) => c.kam === k.kam && !INACTIVE.includes(c.status) && c.health === "Red")} />
               </div>
-              {(k.atRisk > 0 || k.overdue > 0) && (
-                <div className="mt-2 flex gap-2">
+              {(k.atRisk > 0 || k.overdue > 0 || k.onHold > 0) && (
+                <div className="mt-2 flex gap-2 flex-wrap">
+                  {k.onHold > 0 && (
+                    <button onClick={() => openFilter(`${k.kam} — On Hold`, (c) => c.kam === k.kam && c.status === "On Hold")}>
+                      <Badge variant="gray">{k.onHold} on hold</Badge>
+                    </button>
+                  )}
                   {k.atRisk > 0 && (
-                    <button onClick={() => openFilter(`${k.kam} — At Risk`, (c) => c.kam === k.kam && ["Intent to Leave", "Planning to Leave", "At Risk"].includes(c.feedbackStatus))}>
+                    <button onClick={() => openFilter(`${k.kam} — At Risk`, (c) => c.kam === k.kam && !INACTIVE.includes(c.status) && ["Intent to Leave", "Planning to Leave", "At Risk"].includes(c.feedbackStatus))}>
                       <Badge variant="red">{k.atRisk} at risk</Badge>
                     </button>
                   )}

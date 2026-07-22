@@ -45,12 +45,14 @@ export async function GET() {
 
     const kamBreakdown = kamNames.map((kam) => {
       const mine = clients.filter((c) => c.kam === kam)
+      const mineAll = allClients.filter((c) => c.kam === kam)
       return {
         kam,
         total: mine.length,
         green: mine.filter((c) => c.health === "Green").length,
         orange: mine.filter((c) => c.health === "Orange").length,
         red: mine.filter((c) => c.health === "Red").length,
+        onHold: mineAll.filter((c) => c.status === "On Hold").length,
         atRisk: mine.filter((c) => ["Intent to Leave", "Planning to Leave", "At Risk"].includes(c.feedbackStatus)).length,
         overdue: mine.filter((c) => {
           const d = daysSince(c.lastFeedbackDate)
