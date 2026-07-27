@@ -10,6 +10,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Textarea } from "@/components/ui/textarea"
 import { useState } from "react"
 import { Label } from "@/components/ui/label"
+import { ChevronDown, ChevronRight } from "lucide-react"
 import { FeedbackHistoryModal } from "@/components/shared/FeedbackHistoryModal"
 import { useClients } from "@/hooks/useClients"
 import type { Client } from "@/types/client"
@@ -36,6 +37,8 @@ export default function AdminOverview() {
   const [guidanceClient, setGuidanceClient] = useState<{ clientId: string; company: string; kam: string } | null>(null)
   const [feedbackClient, setFeedbackClient] = useState<{ clientId: string; company: string } | null>(null)
   const [clientFilter, setClientFilter] = useState<{ title: string; fn: (c: Client) => boolean } | null>(null)
+  const [open, setOpen] = useState({ kam: false, critical: false, onboarding: false, unassigned: false, other: false })
+  const toggle = (key: keyof typeof open) => setOpen((s) => ({ ...s, [key]: !s[key] }))
 
   const openFilter = (title: string, fn: (c: Client) => boolean) => setClientFilter({ title, fn })
 
@@ -67,8 +70,12 @@ export default function AdminOverview() {
 
       {/* KAM Breakdown */}
       <div>
-        <h2 className="text-lg font-semibold text-[#1e3a5f] mb-3">KAM Breakdown</h2>
-        <div className="grid grid-cols-3 gap-3">
+        <button onClick={() => toggle("kam")} className="flex items-center gap-2 mb-3 w-full text-left group">
+          {open.kam ? <ChevronDown className="h-4 w-4 text-slate-400" /> : <ChevronRight className="h-4 w-4 text-slate-400" />}
+          <h2 className="text-lg font-semibold text-[#1e3a5f] group-hover:underline">KAM Breakdown</h2>
+          <span className="text-xs text-slate-400">({kamBreakdown.length} KAMs)</span>
+        </button>
+        {open.kam && <div className="grid grid-cols-3 gap-3">
           {kamBreakdown.map((k) => (
             <div key={k.kam} className="bg-white rounded-xl border border-slate-200 p-4">
               <div className="font-semibold text-slate-800 mb-2">{k.kam}</div>
@@ -99,13 +106,17 @@ export default function AdminOverview() {
               )}
             </div>
           ))}
-        </div>
+        </div>}
       </div>
 
       {/* Critical Clients */}
       <div>
-        <h2 className="text-lg font-semibold text-[#1e3a5f] mb-3">Critical Clients</h2>
-        <div className="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-sm">
+        <button onClick={() => toggle("critical")} className="flex items-center gap-2 mb-3 w-full text-left group">
+          {open.critical ? <ChevronDown className="h-4 w-4 text-slate-400" /> : <ChevronRight className="h-4 w-4 text-slate-400" />}
+          <h2 className="text-lg font-semibold text-[#1e3a5f] group-hover:underline">Critical Clients</h2>
+          <span className="text-xs text-slate-400">({criticalClients.length} clients)</span>
+        </button>
+        {open.critical && <div className="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-sm">
           <table className="w-full text-sm">
             <thead className="bg-slate-50 border-b border-slate-200">
               <tr>
@@ -138,14 +149,18 @@ export default function AdminOverview() {
               ))}
             </tbody>
           </table>
-        </div>
+        </div>}
       </div>
 
       {/* Onboarding Clients — New / Pending */}
       {onboardingClients.length > 0 && (
         <div>
-          <h2 className="text-lg font-semibold text-[#1e3a5f] mb-3">Onboarding Clients</h2>
-          <div className="grid grid-cols-2 gap-3">
+          <button onClick={() => toggle("onboarding")} className="flex items-center gap-2 mb-3 w-full text-left group">
+            {open.onboarding ? <ChevronDown className="h-4 w-4 text-slate-400" /> : <ChevronRight className="h-4 w-4 text-slate-400" />}
+            <h2 className="text-lg font-semibold text-[#1e3a5f] group-hover:underline">Onboarding Clients</h2>
+            <span className="text-xs text-slate-400">({onboardingClients.reduce((s, g) => s + g.clients.length, 0)} clients)</span>
+          </button>
+          {open.onboarding && <div className="grid grid-cols-2 gap-3">
             {onboardingClients.map((group) => (
               <div key={group.status} className="bg-white rounded-xl border border-blue-200 overflow-hidden shadow-sm">
                 <div className="px-4 py-2.5 bg-blue-50 border-b border-blue-200 flex items-center justify-between">
@@ -162,18 +177,19 @@ export default function AdminOverview() {
                 </div>
               </div>
             ))}
-          </div>
+          </div>}
         </div>
       )}
 
       {/* Unassigned Clients — no KAM */}
       {unassignedClients.length > 0 && (
         <div>
-          <h2 className="text-lg font-semibold text-[#1e3a5f] mb-3">
-            Unassigned Clients
-            <span className="ml-2 text-sm font-normal text-amber-600">({unassignedClients.length} without KAM)</span>
-          </h2>
-          <div className="bg-white rounded-xl border border-amber-200 overflow-hidden shadow-sm">
+          <button onClick={() => toggle("unassigned")} className="flex items-center gap-2 mb-3 w-full text-left group">
+            {open.unassigned ? <ChevronDown className="h-4 w-4 text-slate-400" /> : <ChevronRight className="h-4 w-4 text-slate-400" />}
+            <h2 className="text-lg font-semibold text-[#1e3a5f] group-hover:underline">Unassigned Clients</h2>
+            <span className="text-xs text-amber-600">({unassignedClients.length} without KAM)</span>
+          </button>
+          {open.unassigned && <div className="bg-white rounded-xl border border-amber-200 overflow-hidden shadow-sm">
             <div className="px-4 py-2.5 bg-amber-50 border-b border-amber-200 flex items-center justify-between">
               <span className="text-sm font-semibold text-amber-700">No KAM Assigned</span>
               <Badge variant="orange">{unassignedClients.length}</Badge>
@@ -189,15 +205,19 @@ export default function AdminOverview() {
                 </div>
               ))}
             </div>
-          </div>
+          </div>}
         </div>
       )}
 
       {/* Other Clients — Closed / On Hold / On Notice */}
       {otherClients.length > 0 && (
         <div>
-          <h2 className="text-lg font-semibold text-[#1e3a5f] mb-3">Other Clients</h2>
-          <div className="grid grid-cols-1 gap-3">
+          <button onClick={() => toggle("other")} className="flex items-center gap-2 mb-3 w-full text-left group">
+            {open.other ? <ChevronDown className="h-4 w-4 text-slate-400" /> : <ChevronRight className="h-4 w-4 text-slate-400" />}
+            <h2 className="text-lg font-semibold text-[#1e3a5f] group-hover:underline">Other Clients</h2>
+            <span className="text-xs text-slate-400">({otherClients.reduce((s, g) => s + g.clients.length, 0)} clients)</span>
+          </button>
+          {open.other && <div className="grid grid-cols-1 gap-3">
             {otherClients.map((group) => (
               <div key={group.status} className="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-sm">
                 <div className="px-4 py-2.5 bg-slate-50 border-b border-slate-200 flex items-center justify-between">
@@ -214,7 +234,7 @@ export default function AdminOverview() {
                 </div>
               </div>
             ))}
-          </div>
+          </div>}
         </div>
       )}
 

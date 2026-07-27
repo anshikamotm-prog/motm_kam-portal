@@ -2,6 +2,7 @@
 import { useState, useCallback } from "react"
 import { useQueryClient } from "@tanstack/react-query"
 import type { Client } from "@/types/client"
+import type { FeedbackEntry } from "@/types/feedback"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
@@ -11,31 +12,33 @@ import { X } from "lucide-react"
 import { INTERACTION_TYPES, FEEDBACK_STATUS, HEALTH_OPTIONS, ACTION_OWNERS, RESOLUTION_STATUS_OPTIONS } from "@/constants"
 
 interface Props {
-  client: Client
+  client?: Client
+  existingEntry?: FeedbackEntry  // when provided, modal is in edit mode
   onClose: () => void
   onSaved?: () => void
 }
 
-export function LogFeedbackModal({ client, onClose, onSaved }: Props) {
+export function LogFeedbackModal({ client, existingEntry, onClose, onSaved }: Props) {
   const qc = useQueryClient()
-  // todayISO computed inside state initializer so it captures the actual date at open time,
-  // not at module load time (which would be wrong if the app was left open past midnight).
+  const isEdit = !!existingEntry
+  const displayName = existingEntry?.company ?? client?.company ?? ""
+
   const [form, setForm] = useState({
-    date: new Date().toISOString().split("T")[0],
-    clientId: client.clientId,
-    company: client.company,
-    seName: client.se ?? "",
-    interactionType: "",
-    feedbackStatus: client.feedbackStatus ?? "",
-    healthUpdate: client.health ?? "",
-    whatDiscussed: "",
-    clientConcern: "",
-    actionRequired: "",
-    actionOwner: "",
-    actionDueDate: "",
-    resolutionStatus: "",
-    currentStatus: "",
-    nextFollowupDate: "",
+    date: existingEntry?.date ?? new Date().toISOString().split("T")[0],
+    clientId: existingEntry?.clientId ?? client?.clientId ?? "",
+    company: existingEntry?.company ?? client?.company ?? "",
+    seName: existingEntry?.seName ?? client?.se ?? "",
+    interactionType: existingEntry?.interactionType ?? "",
+    feedbackStatus: existingEntry?.feedbackStatus ?? client?.feedbackStatus ?? "",
+    healthUpdate: existingEntry?.healthUpdate ?? client?.health ?? "",
+    whatDiscussed: existingEntry?.whatDiscussed ?? "",
+    clientConcern: existingEntry?.clientConcern ?? "",
+    actionRequired: existingEntry?.actionRequired ?? "",
+    actionOwner: existingEntry?.actionOwner ?? "",
+    actionDueDate: existingEntry?.actionDueDate ?? "",
+    resolutionStatus: existingEntry?.resolutionStatus ?? "",
+    currentStatus: existingEntry?.currentStatus ?? "",
+    nextFollowupDate: existingEntry?.nextFollowupDate ?? "",
   })
   const [submitting, setSubmitting] = useState(false)
   const [submitted, setSubmitted] = useState(false)
@@ -50,9 +53,9 @@ export function LogFeedbackModal({ client, onClose, onSaved }: Props) {
     setError("")
     try {
       const res = await fetch("/api/feedback", {
-        method: "POST",
+        method: isEdit ? "PATCH" : "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(form),
+        body: JSON.stringify(isEdit ? { rowNum: existingEntry!.rowNum, ...form } : form),
       })
       if (res.ok) {
         setSubmitted(true)
@@ -77,8 +80,8 @@ export function LogFeedbackModal({ client, onClose, onSaved }: Props) {
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200 sticky top-0 bg-white rounded-t-2xl z-10">
           <div>
-            <h2 className="text-lg font-bold text-[#1e3a5f]">Log Feedback</h2>
-            <p className="text-xs text-slate-500">{client.company}</p>
+            <h2 className="text-lg font-bold text-[#1e3a5f]">{isEdit ? "Edit Feedback" : "Log Feedback"}</h2>
+            <p className="text-xs text-slate-500">{displayName}</p>
           </div>
           <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-400">
             <X className="h-5 w-5" />
@@ -176,7 +179,7 @@ export function LogFeedbackModal({ client, onClose, onSaved }: Props) {
             <div className="flex gap-3 shrink-0">
               <Button type="button" variant="outline" onClick={onClose}>Cancel</Button>
               <Button type="submit" disabled={submitting || !form.whatDiscussed}>
-                {submitting ? "Saving..." : submitted ? "Saved ✓" : "Log Feedback"}
+                {submitting ? "Saving..." : submitted ? "Saved ✓" : isEdit ? "Update" : "Log Feedback"}
               </Button>
             </div>
           </div>

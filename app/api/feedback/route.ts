@@ -50,9 +50,16 @@ export async function PATCH(req: NextRequest) {
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   if (session.user.role === "SE" || session.user.role === "DR") return NextResponse.json({ error: "Forbidden" }, { status: 403 })
 
-  const { rowNum, resolutionStatus } = await req.json()
-  if (!rowNum || !resolutionStatus) return NextResponse.json({ error: "rowNum and resolutionStatus required" }, { status: 400 })
-  if (!(RESOLUTION_STATUS_OPTIONS as readonly string[]).includes(resolutionStatus)) {
+  const body = await req.json()
+  const {
+    rowNum, resolutionStatus, date, seName, interactionType, feedbackStatus, healthUpdate,
+    whatDiscussed, clientConcern, actionRequired, actionOwner, actionDueDate,
+    currentStatus, nextFollowupDate,
+  } = body
+
+  if (!rowNum) return NextResponse.json({ error: "rowNum required" }, { status: 400 })
+  // Allow empty string (clears the field); only reject non-empty invalid values
+  if (resolutionStatus !== undefined && resolutionStatus !== "" && !(RESOLUTION_STATUS_OPTIONS as readonly string[]).includes(resolutionStatus)) {
     return NextResponse.json({ error: "Invalid resolutionStatus" }, { status: 400 })
   }
 
@@ -64,11 +71,26 @@ export async function PATCH(req: NextRequest) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 })
     }
 
-    await batchUpdate(SHEET_ID, [{
-      range: `${SHEETS.FEEDBACK_LOG}!${colToLetter(COLS.FEEDBACK.RESOLUTION_STATUS + 1)}${rowNum}`,
-      values: [[esc(resolutionStatus)]],
-    }])
+    const f = COLS.FEEDBACK
+    const col = (c: number) => `${SHEETS.FEEDBACK_LOG}!${colToLetter(c + 1)}${rowNum}`
+    const updates: Array<{ range: string; values: unknown[][] }> = []
 
+    if (date !== undefined) updates.push({ range: col(f.DATE), values: [[esc(date)]] })
+    if (seName !== undefined) updates.push({ range: col(f.SE_NAME), values: [[esc(seName)]] })
+    if (interactionType !== undefined) updates.push({ range: col(f.INTERACTION_TYPE), values: [[esc(interactionType)]] })
+    if (feedbackStatus !== undefined) updates.push({ range: col(f.FEEDBACK_STATUS), values: [[esc(feedbackStatus)]] })
+    if (healthUpdate !== undefined) updates.push({ range: col(f.HEALTH_UPDATE), values: [[esc(healthUpdate)]] })
+    if (whatDiscussed !== undefined) updates.push({ range: col(f.WHAT_DISCUSSED), values: [[esc(whatDiscussed)]] })
+    if (clientConcern !== undefined) updates.push({ range: col(f.CLIENT_CONCERN), values: [[esc(clientConcern)]] })
+    if (actionRequired !== undefined) updates.push({ range: col(f.ACTION_REQUIRED), values: [[esc(actionRequired)]] })
+    if (actionOwner !== undefined) updates.push({ range: col(f.ACTION_OWNER), values: [[esc(actionOwner)]] })
+    if (actionDueDate !== undefined) updates.push({ range: col(f.ACTION_DUE_DATE), values: [[esc(actionDueDate)]] })
+    if (resolutionStatus !== undefined) updates.push({ range: col(f.RESOLUTION_STATUS), values: [[esc(resolutionStatus)]] })
+    if (currentStatus !== undefined) updates.push({ range: col(f.CURRENT_STATUS), values: [[esc(currentStatus)]] })
+    if (nextFollowupDate !== undefined) updates.push({ range: col(f.NEXT_FOLLOWUP_DATE), values: [[esc(nextFollowupDate)]] })
+
+    if (updates.length === 0) return NextResponse.json({ error: "Nothing to update" }, { status: 400 })
+    await batchUpdate(SHEET_ID, updates)
     return NextResponse.json({ success: true })
   } catch (err) {
     console.error("[feedback PATCH]", err)

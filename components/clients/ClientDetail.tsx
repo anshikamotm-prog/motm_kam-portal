@@ -150,6 +150,7 @@ export function ClientDetail({ client, onUpdated }: Props) {
 
       {/* Info row */}
       <div className="grid grid-cols-3 gap-3 text-sm">
+        <InfoCell label="KAM" value={client.kam || "—"} />
         <InfoCell label="SE" value={client.se || "—"} />
         <InfoCell label="Start Date" value={formatDate(client.startDate)} />
         <InfoCell label="Duration" value={client.durationDays ? `${client.durationDays} days` : "—"} />
