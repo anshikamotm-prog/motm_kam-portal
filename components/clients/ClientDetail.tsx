@@ -16,7 +16,7 @@ import { Badge } from "@/components/ui/badge"
 import { formatDate, daysSince, cn } from "@/lib/utils"
 import { STATUS_OPTIONS, HEALTH_OPTIONS, FEEDBACK_STATUS, RESOLUTION_STATUS_OPTIONS } from "@/constants"
 import type { FeedbackEntry } from "@/types/feedback"
-import { ExternalLink, MessageSquare, CalendarPlus, FileText, Star, ChevronDown, ChevronUp, Plus, Activity } from "lucide-react"
+import { ExternalLink, MessageSquare, CalendarPlus, FileText, Star, ChevronDown, ChevronUp, Plus, Activity, Pencil } from "lucide-react"
 
 interface Props {
   client: Client
@@ -38,6 +38,7 @@ export function ClientDetail({ client, onUpdated }: Props) {
   const [showTimeline, setShowTimeline] = useState(false)
   const [showFeedbackModal, setShowFeedbackModal] = useState(false)
   const [resolutionStatus, setResolutionStatus] = useState("")
+  const [editEntry, setEditEntry] = useState<FeedbackEntry | null>(null)
   const update = useUpdateClient()
   const qc = useQueryClient()
 
@@ -45,8 +46,6 @@ export function ClientDetail({ client, onUpdated }: Props) {
     queryKey: ["feedback", client.clientId],
     queryFn: () => fetch(`/api/feedback?clientId=${client.clientId}`).then((r) => r.json()),
   })
-  const lastFeedback = Array.isArray(feedbackData) ? (feedbackData[0] ?? null) : null
-
   const updateResolution = useMutation({
     mutationFn: (data: { rowNum: number; resolutionStatus: string }) =>
       fetch("/api/feedback", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(data) }).then((r) => r.json()),
@@ -224,58 +223,81 @@ export function ClientDetail({ client, onUpdated }: Props) {
         </div>
       </div>
 
-      {/* Last Feedback */}
-      {lastFeedback && (
-        <div className="rounded-xl border border-slate-200 p-4 space-y-2.5">
-          <div className="flex items-center justify-between">
-            <h3 className="text-sm font-semibold text-slate-700">Last Feedback</h3>
-            <span className="text-xs text-slate-400">{formatDate(lastFeedback.date)}</span>
-          </div>
-          <div className="flex flex-wrap gap-1.5">
-            {lastFeedback.healthUpdate && <HealthBadge health={lastFeedback.healthUpdate} />}
-            {lastFeedback.feedbackStatus && <FeedbackBadge status={lastFeedback.feedbackStatus} />}
-            {lastFeedback.interactionType && <Badge variant="gray">{lastFeedback.interactionType}</Badge>}
-          </div>
-          {lastFeedback.whatDiscussed && (
-            <div className="text-xs text-slate-600 bg-slate-50 rounded px-2 py-1.5">
-              <span className="font-medium text-slate-500">Discussed: </span>{lastFeedback.whatDiscussed}
-            </div>
-          )}
-          {lastFeedback.clientConcern && (
-            <div className="text-xs text-slate-600 bg-yellow-50 rounded px-2 py-1.5">
-              <span className="font-medium text-yellow-700">Client Concern: </span>{lastFeedback.clientConcern}
-            </div>
-          )}
-          {lastFeedback.actionRequired && (
-            <div className="text-xs text-slate-600 bg-blue-50 rounded px-2 py-1.5">
-              <span className="font-medium text-blue-600">Action: </span>{lastFeedback.actionRequired}
-              {lastFeedback.actionOwner && <span className="text-slate-400"> · {lastFeedback.actionOwner}</span>}
-              {lastFeedback.actionDueDate && <span className="text-slate-400"> · Due {formatDate(lastFeedback.actionDueDate)}</span>}
-            </div>
-          )}
-          <div className="flex items-center gap-2 pt-1 border-t border-slate-100">
-            <Label className="text-xs shrink-0 text-slate-500">Resolution:</Label>
-            <Select
-              value={resolutionStatus || lastFeedback.resolutionStatus}
-              onValueChange={setResolutionStatus}
-            >
-              <SelectTrigger className="h-7 text-xs flex-1">
-                <SelectValue placeholder="Not set" />
-              </SelectTrigger>
-              <SelectContent>
-                {RESOLUTION_STATUS_OPTIONS.map((o) => <SelectItem key={o} value={o}>{o}</SelectItem>)}
-              </SelectContent>
-            </Select>
-            <Button
-              size="sm"
-              className="h-7 text-xs px-3 shrink-0"
-              disabled={!resolutionStatus || resolutionStatus === lastFeedback.resolutionStatus || updateResolution.isPending}
-              onClick={() => updateResolution.mutate({ rowNum: lastFeedback.rowNum, resolutionStatus })}
-            >
-              {updateResolution.isPending ? "..." : updateResolution.isSuccess ? "Saved ✓" : "Update"}
-            </Button>
+      {/* Last 5 Feedbacks */}
+      {Array.isArray(feedbackData) && feedbackData.length > 0 && (
+        <div className="rounded-xl border border-slate-200 p-4 space-y-3">
+          <h3 className="text-sm font-semibold text-slate-700">Last 5 Feedbacks</h3>
+          <div className="space-y-3">
+            {feedbackData.slice(0, 5).map((f, i) => (
+              <div key={f.rowNum} className="rounded-lg border border-slate-100 p-3 space-y-1.5">
+                <div className="flex items-center justify-between gap-2 flex-wrap">
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    <span className="text-xs font-semibold text-slate-700">{formatDate(f.date)}</span>
+                    {f.healthUpdate && <HealthBadge health={f.healthUpdate} />}
+                    {f.feedbackStatus && <FeedbackBadge status={f.feedbackStatus} />}
+                    {f.interactionType && <Badge variant="gray">{f.interactionType}</Badge>}
+                  </div>
+                  <button
+                    onClick={() => setEditEntry(f)}
+                    className="p-1 rounded hover:bg-slate-100 text-slate-400 hover:text-[#1e3a5f] transition-colors shrink-0"
+                    title="Edit this feedback"
+                  >
+                    <Pencil className="h-3 w-3" />
+                  </button>
+                </div>
+                {f.whatDiscussed && (
+                  <div className="text-xs text-slate-600 bg-slate-50 rounded px-2 py-1.5">
+                    <span className="font-medium text-slate-500">Discussed: </span>{f.whatDiscussed}
+                  </div>
+                )}
+                {f.clientConcern && (
+                  <div className="text-xs text-slate-600 bg-yellow-50 rounded px-2 py-1.5">
+                    <span className="font-medium text-yellow-700">Client Concern: </span>{f.clientConcern}
+                  </div>
+                )}
+                {f.actionRequired && (
+                  <div className="text-xs text-slate-600 bg-blue-50 rounded px-2 py-1.5">
+                    <span className="font-medium text-blue-600">Action: </span>{f.actionRequired}
+                    {f.actionOwner && <span className="text-slate-400"> · {f.actionOwner}</span>}
+                    {f.actionDueDate && <span className="text-slate-400"> · Due {formatDate(f.actionDueDate)}</span>}
+                  </div>
+                )}
+                {i === 0 && (
+                  <div className="flex items-center gap-2 pt-1 border-t border-slate-100">
+                    <Label className="text-xs shrink-0 text-slate-500">Resolution:</Label>
+                    <Select
+                      value={resolutionStatus || f.resolutionStatus}
+                      onValueChange={setResolutionStatus}
+                    >
+                      <SelectTrigger className="h-7 text-xs flex-1">
+                        <SelectValue placeholder="Not set" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {RESOLUTION_STATUS_OPTIONS.map((o) => <SelectItem key={o} value={o}>{o}</SelectItem>)}
+                      </SelectContent>
+                    </Select>
+                    <Button
+                      size="sm"
+                      className="h-7 text-xs px-3 shrink-0"
+                      disabled={!resolutionStatus || resolutionStatus === f.resolutionStatus || updateResolution.isPending}
+                      onClick={() => updateResolution.mutate({ rowNum: f.rowNum, resolutionStatus })}
+                    >
+                      {updateResolution.isPending ? "..." : updateResolution.isSuccess ? "Saved ✓" : "Update"}
+                    </Button>
+                  </div>
+                )}
+              </div>
+            ))}
           </div>
         </div>
+      )}
+
+      {editEntry && (
+        <LogFeedbackModal
+          existingEntry={editEntry}
+          onClose={() => setEditEntry(null)}
+          onSaved={() => setEditEntry(null)}
+        />
       )}
 
       {/* Quick action links */}
