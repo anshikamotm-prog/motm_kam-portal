@@ -9,6 +9,14 @@ export function useClients() {
   })
 }
 
+export function useArchivedClients() {
+  return useQuery<Client[]>({
+    queryKey: ["clients", "archived"],
+    queryFn: () => fetch("/api/clients/archived").then((r) => r.json()),
+    staleTime: 5 * 60 * 1000,
+  })
+}
+
 export function useUpdateClient() {
   const qc = useQueryClient()
   return useMutation({

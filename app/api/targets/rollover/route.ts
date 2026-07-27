@@ -4,6 +4,9 @@ import { authOptions } from "@/lib/auth"
 import { getSheetValues, appendRow } from "@/lib/sheets"
 import { SHEET_ID, SHEETS, COLS } from "@/constants"
 import { esc, getCurrentPeriod } from "@/lib/utils"
+import { parseClient } from "@/lib/sheets-helpers"
+
+const ARCHIVED_STATUSES = ["Closed", "Uncountable"]
 
 export async function POST(req: NextRequest) {
   const session = await getServerSession(authOptions)
@@ -11,8 +14,17 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 })
   }
 
-  const rows = await getSheetValues(SHEET_ID, SHEETS.TARGETS)
+  const [rows, clientRows] = await Promise.all([
+    getSheetValues(SHEET_ID, SHEETS.TARGETS),
+    getSheetValues(SHEET_ID, SHEETS.CLIENT_MASTER),
+  ])
   const data = rows.slice(1)
+  const archivedClientIds = new Set(
+    clientRows.slice(1)
+      .map((r, i) => parseClient(r, i + 2))
+      .filter((c) => ARCHIVED_STATUSES.includes(c.status))
+      .map((c) => c.clientId)
+  )
 
   const currentPeriod = getCurrentPeriod()
   // Dedup key: clientId + type + seName so all target types roll over independently
@@ -34,7 +46,9 @@ export async function POST(req: NextRequest) {
 
   let rolled = 0
   for (const row of lastRows) {
-    const key = `${row[COLS.TARGET.CLIENT_ID]}|${row[COLS.TARGET.TYPE] ?? ""}|${row[COLS.TARGET.SE_NAME] ?? ""}`
+    const clientId = row[COLS.TARGET.CLIENT_ID]
+    if (archivedClientIds.has(clientId)) continue
+    const key = `${clientId}|${row[COLS.TARGET.TYPE] ?? ""}|${row[COLS.TARGET.SE_NAME] ?? ""}`
     if (currentKeys.has(key)) continue
 
     await appendRow(SHEET_ID, SHEETS.TARGETS, [

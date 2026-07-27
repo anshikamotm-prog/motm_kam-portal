@@ -1,13 +1,13 @@
 "use client"
 import { useState, useMemo } from "react"
-import { useClients } from "@/hooks/useClients"
+import { useClients, useArchivedClients } from "@/hooks/useClients"
 import { HealthBadge, FeedbackBadge, ClientStatusBadge } from "@/components/shared/StatusBadge"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { PageSpinner } from "@/components/shared/Spinner"
 import { formatDate, daysSince } from "@/lib/utils"
-import { Upload } from "lucide-react"
+import { Upload, ChevronDown, ChevronRight, Archive } from "lucide-react"
 import { STATUS_OPTIONS, HEALTH_OPTIONS, FEEDBACK_STATUS } from "@/constants"
 import { useKAMNames } from "@/hooks/useKAMNames"
 import { GuidanceModal } from "./AdminOverview"
@@ -15,8 +15,11 @@ import BulkImportModal from "./BulkImportModal"
 import { FeedbackHistoryModal } from "@/components/shared/FeedbackHistoryModal"
 import type { Client } from "@/types/client"
 
+const ARCHIVED_STATUSES = ["Closed", "Uncountable"]
+
 export default function AdminClientsView() {
   const { data: clients, isLoading } = useClients()
+  const { data: archivedClients = [] } = useArchivedClients()
   const { data: kamNames = [] } = useKAMNames()
   const [filterKam, setFilterKam] = useState("All")
   const [filterStatus, setFilterStatus] = useState("All")
@@ -26,6 +29,9 @@ export default function AdminClientsView() {
   const [guidanceTarget, setGuidanceTarget] = useState<Client | null>(null)
   const [feedbackTarget, setFeedbackTarget] = useState<Client | null>(null)
   const [bulkImportOpen, setBulkImportOpen] = useState(false)
+  const [showArchived, setShowArchived] = useState(false)
+  const [archivedSearch, setArchivedSearch] = useState("")
+  const [archivedKam, setArchivedKam] = useState("All")
 
   const filtered = useMemo(() => {
     if (!clients) return []
@@ -38,6 +44,14 @@ export default function AdminClientsView() {
       return true
     })
   }, [clients, filterKam, filterStatus, filterHealth, filterFeedback, search])
+
+  const filteredArchived = useMemo(() => {
+    return archivedClients.filter((c) => {
+      if (archivedKam !== "All" && c.kam !== archivedKam) return false
+      if (archivedSearch && !c.company.toLowerCase().includes(archivedSearch.toLowerCase())) return false
+      return true
+    })
+  }, [archivedClients, archivedKam, archivedSearch])
 
   if (isLoading) return <PageSpinner />
 
@@ -54,7 +68,7 @@ export default function AdminClientsView() {
       <div className="bg-white rounded-xl border border-slate-200 p-3 flex flex-wrap gap-2">
         <Input placeholder="Search company..." value={search} onChange={(e) => setSearch(e.target.value)} className="h-8 w-48 text-xs" />
         <FilterSelect value={filterKam} onChange={setFilterKam} placeholder="All KAMs" options={kamNames} />
-        <FilterSelect value={filterStatus} onChange={setFilterStatus} placeholder="All Statuses" options={[...STATUS_OPTIONS]} />
+        <FilterSelect value={filterStatus} onChange={setFilterStatus} placeholder="All Statuses" options={STATUS_OPTIONS.filter((s) => !ARCHIVED_STATUSES.includes(s))} />
         <FilterSelect value={filterHealth} onChange={setFilterHealth} placeholder="All Health" options={[...HEALTH_OPTIONS]} />
         <FilterSelect value={filterFeedback} onChange={setFilterFeedback} placeholder="All Feedback" options={[...FEEDBACK_STATUS]} />
         <div className="text-xs text-slate-400 self-center ml-auto">{filtered.length} clients</div>
@@ -101,6 +115,67 @@ export default function AdminClientsView() {
             </tbody>
           </table>
         </div>
+      </div>
+
+      {/* Archived Clients */}
+      <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+        <button
+          onClick={() => setShowArchived((v) => !v)}
+          className="w-full px-4 py-3 flex items-center gap-2 bg-slate-50 border-b border-slate-200 hover:bg-slate-100 transition-colors"
+        >
+          {showArchived ? <ChevronDown className="h-4 w-4 text-slate-400" /> : <ChevronRight className="h-4 w-4 text-slate-400" />}
+          <Archive className="h-4 w-4 text-slate-400" />
+          <span className="font-semibold text-slate-700 text-sm">Archived Clients</span>
+          <span className="ml-1 text-xs text-slate-400">({archivedClients.length} — Closed &amp; Uncountable)</span>
+        </button>
+        {showArchived && (
+          <>
+            <div className="p-3 flex gap-2 border-b border-slate-100">
+              <Input
+                placeholder="Search archived..."
+                value={archivedSearch}
+                onChange={(e) => setArchivedSearch(e.target.value)}
+                className="h-8 w-48 text-xs"
+              />
+              <FilterSelect value={archivedKam} onChange={setArchivedKam} placeholder="All KAMs" options={kamNames} />
+              <span className="text-xs text-slate-400 self-center ml-auto">{filteredArchived.length} clients</span>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead className="bg-slate-50 border-b border-slate-200">
+                  <tr>
+                    {["Company/ID", "KAM", "SE", "Status", "Last Feedback", "Days"].map((h) => (
+                      <th key={h} className="px-3 py-2 text-left text-xs font-semibold text-slate-500 whitespace-nowrap">{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredArchived.length === 0 && (
+                    <tr><td colSpan={6} className="px-3 py-6 text-center text-xs text-slate-400">No archived clients</td></tr>
+                  )}
+                  {filteredArchived.map((c) => {
+                    const days = daysSince(c.lastFeedbackDate)
+                    return (
+                      <tr key={c.clientId} className="border-b border-slate-100 hover:bg-slate-50 opacity-70">
+                        <td className="px-3 py-2">
+                          <button onClick={() => setFeedbackTarget(c)} className="text-left hover:underline">
+                            <div className="font-medium text-slate-700">{c.company}</div>
+                            <div className="text-[10px] text-slate-400">{c.clientId}</div>
+                          </button>
+                        </td>
+                        <td className="px-3 py-2 text-slate-500">{c.kam || "—"}</td>
+                        <td className="px-3 py-2 text-xs text-slate-500">{c.se || "—"}</td>
+                        <td className="px-3 py-2"><ClientStatusBadge status={c.status} /></td>
+                        <td className="px-3 py-2 text-xs text-slate-500">{formatDate(c.lastFeedbackDate)}</td>
+                        <td className="px-3 py-2 text-xs text-slate-500">{days !== null ? `${days}d` : "—"}</td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </>
+        )}
       </div>
 
       {guidanceTarget && (

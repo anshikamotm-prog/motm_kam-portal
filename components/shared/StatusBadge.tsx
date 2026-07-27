@@ -11,6 +11,7 @@ function healthVariant(health: string): BadgeProps["variant"] {
 function feedbackVariant(status: string): BadgeProps["variant"] {
   if (status === "Positive") return "green"
   if (status === "Neutral") return "gray"
+  if (status === "Negative") return "orange"
   if (status === "On Notice") return "yellow"
   if (status === "Planning to Leave") return "orange"
   if (status === "Intent to Leave" || status === "At Risk") return "red"

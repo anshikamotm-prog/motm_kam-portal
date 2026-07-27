@@ -24,14 +24,16 @@ function monthToNum(m: string) {
 
 export default function TargetsView() {
   const { data: session } = useSession()
-  const { data: targets, isLoading } = useTargets()
-  const updateTarget = useUpdateTarget()
-  const { data: allClients = [] } = useClients()
   const [period, setPeriod] = useState(getCurrentPeriod())
   const [groupBy, setGroupBy] = useState<GroupBy>("client")
   const [viewMode, setViewMode] = useState<ViewMode>("targets")
   const [historyRange, setHistoryRange] = useState<6 | 12>(6)
   const [summaryMode, setSummaryMode] = useState<"week" | "month">("week")
+  const { data: targets, isLoading } = useTargets()
+  // Period-specific query triggers the carryForward block in the API (enquiries/data-collection rollover)
+  const { data: periodTargets } = useTargets(period)
+  const updateTarget = useUpdateTarget()
+  const { data: allClients = [] } = useClients()
 
   const periods = useMemo(() => {
     const current = getCurrentPeriod()
@@ -45,10 +47,17 @@ export default function TargetsView() {
     return periods[0] ?? period
   }, [periods, period])
 
-  const filtered = useMemo(
-    () => targets?.filter((t) => t.period === effectivePeriod) ?? [],
-    [targets, effectivePeriod],
+  const activeClientIds = useMemo(
+    () => new Set(allClients.map((c) => c.clientId)),
+    [allClients],
   )
+
+  // Use period-specific API response (has carryForward applied) for the targets panel.
+  // Filter out targets for archived (Closed/Uncountable) clients.
+  const filtered = useMemo(() => {
+    const base = periodTargets ?? targets?.filter((t) => t.period === effectivePeriod) ?? []
+    return base.filter((t) => !t.clientId || activeClientIds.has(t.clientId))
+  }, [periodTargets, targets, effectivePeriod, activeClientIds])
 
   const clientsWithoutTarget = useMemo(() => {
     const clientIdsWithTarget = new Set(filtered.map((t) => t.clientId).filter(Boolean))

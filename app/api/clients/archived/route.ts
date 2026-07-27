@@ -5,6 +5,8 @@ import { getSheetValues } from "@/lib/sheets"
 import { parseClient } from "@/lib/sheets-helpers"
 import { SHEET_ID, SHEETS } from "@/constants"
 
+const ARCHIVED = ["Closed", "Uncountable"]
+
 export async function GET() {
   const session = await getServerSession(authOptions)
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
@@ -12,18 +14,18 @@ export async function GET() {
   try {
     const rows = await getSheetValues(SHEET_ID, SHEETS.CLIENT_MASTER)
     const data = rows.slice(1).map((row, i) => parseClient(row, i + 2))
+    const archived = data.filter((c) => ARCHIVED.includes(c.status))
 
-    const INACTIVE = ["Closed", "Uncountable"]
     const filtered =
       session.user.role === "Admin"
-        ? data.filter((c) => !INACTIVE.includes(c.status))
+        ? archived
         : session.user.role === "SE"
-        ? data.filter((c) => c.se === session.user.fullName && !INACTIVE.includes(c.status))
-        : data.filter((c) => c.kam === session.user.kamName && !INACTIVE.includes(c.status))
+        ? archived.filter((c) => c.se === session.user.fullName)
+        : archived.filter((c) => c.kam === session.user.kamName)
 
     return NextResponse.json(filtered)
   } catch (err) {
-    console.error("[clients GET]", err)
-    return NextResponse.json({ error: "Failed to load clients" }, { status: 500 })
+    console.error("[clients/archived GET]", err)
+    return NextResponse.json({ error: "Failed to load archived clients" }, { status: 500 })
   }
 }

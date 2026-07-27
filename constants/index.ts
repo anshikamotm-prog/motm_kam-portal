@@ -13,7 +13,7 @@ export const STATUS_OPTIONS = [
 export const HEALTH_OPTIONS = ["Green", "Orange", "Red", "Unset"] as const
 
 export const FEEDBACK_STATUS = [
-  "Positive", "Neutral", "On Notice", "Planning to Leave",
+  "Positive", "Neutral", "Negative", "On Notice", "Planning to Leave",
   "Intent to Leave", "At Risk",
 ] as const
 

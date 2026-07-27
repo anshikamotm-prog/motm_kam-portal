@@ -1,6 +1,6 @@
 "use client"
 import { useState, useMemo, useEffect, useCallback } from "react"
-import { useClients } from "@/hooks/useClients"
+import { useClients, useArchivedClients } from "@/hooks/useClients"
 import { useHealthTrends } from "@/hooks/useHealthTrends"
 import { ClientList } from "./ClientList"
 import { ClientDetail } from "./ClientDetail"
@@ -14,6 +14,7 @@ const STORAGE_KEY = "motm-pinned"
 
 export default function MyClientsView() {
   const { data: clients, isLoading } = useClients()
+  const { data: archivedClients = [] } = useArchivedClients()
   const trends = useHealthTrends()
   const [selected, setSelected] = useState<Client | null>(null)
   const [showDetail, setShowDetail] = useState(false)
@@ -97,6 +98,7 @@ export default function MyClientsView() {
           pinnedIds={pinnedIds}
           onTogglePin={togglePin}
           trends={trends}
+          archivedClients={archivedClients}
           className={cn(selected && showDetail && "hidden md:flex md:flex-col")}
         />
 

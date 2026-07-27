@@ -1,9 +1,10 @@
 "use client"
+import { useState } from "react"
 import type { Client } from "@/types/client"
 import { HealthDot } from "@/components/shared/HealthDot"
 import { Input } from "@/components/ui/input"
 import { cn, daysSince } from "@/lib/utils"
-import { Search, AlertTriangle, Star, TrendingUp, TrendingDown, Minus } from "lucide-react"
+import { Search, AlertTriangle, Star, TrendingUp, TrendingDown, Minus, ChevronDown, ChevronRight, Archive } from "lucide-react"
 
 const HEALTH_FILTERS = ["All", "Green", "Orange", "Red"]
 
@@ -18,6 +19,7 @@ interface Props {
   pinnedIds: string[]
   onTogglePin: (id: string) => void
   trends: Map<string, "up" | "down" | "same">
+  archivedClients?: Client[]
   className?: string
 }
 
@@ -75,10 +77,11 @@ function ClientCard({
           <span className={cn(
             "text-[10px] px-1.5 rounded-full",
             c.feedbackStatus === "Positive" && "bg-[#bbf7d0] text-[#14532d]",
+            c.feedbackStatus === "Negative" && "bg-[#fed7aa] text-[#7c2d12]",
             c.feedbackStatus === "On Notice" && "bg-[#fef9c3] text-[#713f12]",
             (c.feedbackStatus === "Intent to Leave" || c.feedbackStatus === "At Risk") && "bg-[#fca5a5] text-[#7f1d1d]",
             c.feedbackStatus === "Planning to Leave" && "bg-[#fed7aa] text-[#7c2d12]",
-            !["Positive", "On Notice", "Intent to Leave", "Planning to Leave", "At Risk"].includes(c.feedbackStatus) && "bg-slate-100 text-slate-500",
+            !["Positive", "Negative", "On Notice", "Intent to Leave", "Planning to Leave", "At Risk"].includes(c.feedbackStatus) && "bg-slate-100 text-slate-500",
           )}>
             {c.feedbackStatus}
           </span>
@@ -90,8 +93,9 @@ function ClientCard({
 
 export function ClientList({
   clients, selected, onSelect, search, onSearch, healthFilter, onHealthFilter,
-  pinnedIds, onTogglePin, trends, className,
+  pinnedIds, onTogglePin, trends, archivedClients = [], className,
 }: Props) {
+  const [showArchived, setShowArchived] = useState(false)
   const pinnedClients = clients.filter((c) => pinnedIds.includes(c.clientId))
   const unpinnedClients = clients.filter((c) => !pinnedIds.includes(c.clientId))
 
@@ -175,6 +179,42 @@ export function ClientList({
             trend={trends.get(c.clientId)}
           />
         ))}
+
+        {/* Archived section */}
+        {archivedClients.length > 0 && (
+          <>
+            <button
+              onClick={() => setShowArchived((v) => !v)}
+              className="w-full px-3 py-2 flex items-center gap-1.5 bg-slate-100 border-t border-slate-200 text-[10px] font-semibold text-slate-500 uppercase tracking-wide hover:bg-slate-200 transition-colors"
+            >
+              {showArchived ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
+              <Archive className="h-3 w-3" />
+              Archived ({archivedClients.length})
+            </button>
+            {showArchived && archivedClients.map((c) => (
+              <div
+                key={c.clientId}
+                role="button"
+                tabIndex={0}
+                onClick={() => onSelect(c)}
+                onKeyDown={(e) => (e.key === "Enter" || e.key === " ") && onSelect(c)}
+                className={cn(
+                  "w-full text-left px-3 py-2 border-b border-slate-50 hover:bg-slate-50 transition-colors cursor-pointer opacity-60",
+                  selected?.clientId === c.clientId && "bg-blue-50 border-l-2 border-l-[#1e3a5f] opacity-100",
+                )}
+              >
+                <div className="flex items-center gap-2">
+                  <HealthDot health={c.health} />
+                  <span className="text-sm font-medium text-slate-700 truncate flex-1">{c.company}</span>
+                  <span className="text-[10px] bg-slate-200 text-slate-500 px-1.5 rounded shrink-0">{c.status}</span>
+                </div>
+                <div className="mt-0.5 pl-4">
+                  <span className="text-[10px] text-slate-400">{c.clientId}</span>
+                </div>
+              </div>
+            ))}
+          </>
+        )}
       </div>
     </div>
   )
