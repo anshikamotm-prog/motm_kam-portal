@@ -17,6 +17,19 @@ import type { Client } from "@/types/client"
 
 const ARCHIVED_STATUSES = ["Closed", "Uncountable"]
 
+const DATE_PRESETS: { label: string; days: number | null }[] = [
+  { label: "All", days: null },
+  { label: "Past 30 days", days: 30 },
+  { label: "Past 60 days", days: 60 },
+  { label: "Past 90 days", days: 90 },
+  { label: "Past 120 days", days: 120 },
+  { label: "Custom", days: -1 },
+]
+
+function toDateInputValue(d: Date) {
+  return d.toISOString().slice(0, 10)
+}
+
 export default function AdminClientsView() {
   const { data: clients, isLoading } = useClients()
   const { data: archivedClients = [] } = useArchivedClients()
@@ -27,6 +40,7 @@ export default function AdminClientsView() {
   const [filterFeedback, setFilterFeedback] = useState("All")
   const [startDateFrom, setStartDateFrom] = useState("")
   const [startDateTo, setStartDateTo] = useState("")
+  const [datePreset, setDatePreset] = useState("All")
   const [search, setSearch] = useState("")
   const [guidanceTarget, setGuidanceTarget] = useState<Client | null>(null)
   const [feedbackTarget, setFeedbackTarget] = useState<Client | null>(null)
@@ -61,6 +75,22 @@ export default function AdminClientsView() {
     })
   }, [archivedClients, archivedKam, archivedSearch])
 
+  const handleDatePreset = (label: string) => {
+    setDatePreset(label)
+    const preset = DATE_PRESETS.find((p) => p.label === label)
+    if (!preset || preset.days === -1) return
+    if (preset.days === null) {
+      setStartDateFrom("")
+      setStartDateTo("")
+      return
+    }
+    const to = new Date()
+    const from = new Date()
+    from.setDate(from.getDate() - preset.days)
+    setStartDateFrom(toDateInputValue(from))
+    setStartDateTo(toDateInputValue(to))
+  }
+
   if (isLoading) return <PageSpinner />
 
   return (
@@ -81,9 +111,19 @@ export default function AdminClientsView() {
         <FilterSelect value={filterFeedback} onChange={setFilterFeedback} placeholder="All Feedback" options={[...FEEDBACK_STATUS]} />
         <div className="flex items-center gap-1">
           <span className="text-xs text-slate-400">Joined:</span>
-          <Input type="date" value={startDateFrom} onChange={(e) => setStartDateFrom(e.target.value)} className="h-8 w-36 text-xs" />
-          <span className="text-xs text-slate-400">to</span>
-          <Input type="date" value={startDateTo} onChange={(e) => setStartDateTo(e.target.value)} className="h-8 w-36 text-xs" />
+          <Select value={datePreset} onValueChange={handleDatePreset}>
+            <SelectTrigger className="h-8 w-36 text-xs"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              {DATE_PRESETS.map((p) => <SelectItem key={p.label} value={p.label}>{p.label}</SelectItem>)}
+            </SelectContent>
+          </Select>
+          {datePreset === "Custom" && (
+            <>
+              <Input type="date" value={startDateFrom} onChange={(e) => setStartDateFrom(e.target.value)} className="h-8 w-36 text-xs" />
+              <span className="text-xs text-slate-400">to</span>
+              <Input type="date" value={startDateTo} onChange={(e) => setStartDateTo(e.target.value)} className="h-8 w-36 text-xs" />
+            </>
+          )}
         </div>
         <div className="text-xs text-slate-400 self-center ml-auto">{filtered.length} clients</div>
       </div>
