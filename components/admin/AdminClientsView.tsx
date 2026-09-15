@@ -25,6 +25,8 @@ export default function AdminClientsView() {
   const [filterStatus, setFilterStatus] = useState("All")
   const [filterHealth, setFilterHealth] = useState("All")
   const [filterFeedback, setFilterFeedback] = useState("All")
+  const [startDateFrom, setStartDateFrom] = useState("")
+  const [startDateTo, setStartDateTo] = useState("")
   const [search, setSearch] = useState("")
   const [guidanceTarget, setGuidanceTarget] = useState<Client | null>(null)
   const [feedbackTarget, setFeedbackTarget] = useState<Client | null>(null)
@@ -41,9 +43,15 @@ export default function AdminClientsView() {
       if (filterHealth !== "All" && c.health !== filterHealth) return false
       if (filterFeedback !== "All" && c.feedbackStatus !== filterFeedback) return false
       if (search && !c.company.toLowerCase().includes(search.toLowerCase())) return false
+      if (startDateFrom || startDateTo) {
+        const d = c.startDate ? new Date(c.startDate) : null
+        if (!d || isNaN(d.getTime())) return false
+        if (startDateFrom && d < new Date(startDateFrom)) return false
+        if (startDateTo && d > new Date(startDateTo + "T23:59:59")) return false
+      }
       return true
     })
-  }, [clients, filterKam, filterStatus, filterHealth, filterFeedback, search])
+  }, [clients, filterKam, filterStatus, filterHealth, filterFeedback, search, startDateFrom, startDateTo])
 
   const filteredArchived = useMemo(() => {
     return archivedClients.filter((c) => {
@@ -71,6 +79,12 @@ export default function AdminClientsView() {
         <FilterSelect value={filterStatus} onChange={setFilterStatus} placeholder="All Statuses" options={STATUS_OPTIONS.filter((s) => !ARCHIVED_STATUSES.includes(s))} />
         <FilterSelect value={filterHealth} onChange={setFilterHealth} placeholder="All Health" options={[...HEALTH_OPTIONS]} />
         <FilterSelect value={filterFeedback} onChange={setFilterFeedback} placeholder="All Feedback" options={[...FEEDBACK_STATUS]} />
+        <div className="flex items-center gap-1">
+          <span className="text-xs text-slate-400">Joined:</span>
+          <Input type="date" value={startDateFrom} onChange={(e) => setStartDateFrom(e.target.value)} className="h-8 w-36 text-xs" />
+          <span className="text-xs text-slate-400">to</span>
+          <Input type="date" value={startDateTo} onChange={(e) => setStartDateTo(e.target.value)} className="h-8 w-36 text-xs" />
+        </div>
         <div className="text-xs text-slate-400 self-center ml-auto">{filtered.length} clients</div>
       </div>
 

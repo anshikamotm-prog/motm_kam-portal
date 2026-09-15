@@ -41,16 +41,31 @@ export default function AdminPerformanceView() {
 
   const filtered = targets?.filter((t) => t.period === effectivePeriod) ?? []
 
+  // Only keep targets for clients whose status is not Closed/Uncountable
+  const ARCHIVED_STATUSES = ["Closed", "Uncountable"]
+  const openClientIds = useMemo(() => {
+    const set = new Set<string>()
+    ;(clients ?? []).forEach((c) => {
+      if (!ARCHIVED_STATUSES.includes(c.status)) set.add(c.clientId)
+    })
+    return set
+  }, [clients])
+
+  const openFiltered = useMemo(
+    () => filtered.filter((t) => !clients || openClientIds.has(t.clientId)),
+    [filtered, clients, openClientIds],
+  )
+
   // For performance view: group by KAM
   const byKam = useMemo(() => {
-    const map: Record<string, typeof filtered> = {}
-    filtered.forEach((t) => {
+    const map: Record<string, typeof openFiltered> = {}
+    openFiltered.forEach((t) => {
       const k = t.kam || "Unassigned"
       if (!map[k]) map[k] = []
       map[k].push(t)
     })
     return map
-  }, [filtered])
+  }, [openFiltered])
 
   if (isLoading) return <PageSpinner />
 
